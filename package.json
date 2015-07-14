@@ -23,7 +23,8 @@
     "express-session": "^1.11.3",
     "passport": "^0.2.2",
     "passport-local": "^1.0.0",
-    "passport-localapikey": "0.0.3"
+    "passport-localapikey": "0.0.3",
+    "passport-remember-me": "0.0.1"
   },
   "devDependencies": {
     "fakeredis": "^0.3.1",
