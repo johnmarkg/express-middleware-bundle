@@ -1,8 +1,8 @@
 {
-  "name": "express-scaffold",
+  "name": "express-middlelware-bundle",
   "version": "0.0.1",
   "description": "ease use of microservices",
-  "main": "express-scaffold.js",
+  "main": "express-middlelware-bundle.js",
   "scripts": {
     "test": "./node_modules/istanbul/lib/cli.js cover ./node_modules/.bin/_mocha",
     "coveralls": "cat ./coverage/lcov.info | ./node_modules/.bin/coveralls"

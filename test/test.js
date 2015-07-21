@@ -11,7 +11,7 @@
 	var mysql = fakemysql();
 
 	var assert = require('assert');
-	var server = require('../express-scaffold');
+	var server = require('../index');
 	var mochaHttp = require('mocha-http-utils');
 
 	var sessionCookie;
