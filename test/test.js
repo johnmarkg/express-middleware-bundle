@@ -1317,14 +1317,15 @@
 
 
 				if (
-					q === 'select * from users where id = ?' && p && p[0] == 1
+					q === 'select u.* , GROUP_CONCAT( role ) roles from users u  join user_roles r on(u.id=r.user_id)  where id = ? group by user_id' && p && p[0] == 1
 				) {
 					return cb(null, [{
 						id: 1,
 						password: 'password',
 						salted: 0,
 						active: 1,
-						username: 'user'
+						username: 'user',
+						roles: 'roleA,roleB'
 					}])
 				}
 

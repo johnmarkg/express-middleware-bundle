@@ -258,12 +258,13 @@
 		debug('default deserializeUser: ' + string);
 		var t = this;
 
-		var q = 'select * from users where id = ?';
+		var q = 'select u.* , GROUP_CONCAT( role ) roles from users u  join user_roles r on(u.id=r.user_id)  where id = ? group by user_id'
 		var p = [string]
 		this._mysql.query(q, p, function(err, rows) {
 			if (err) {
 				return done(err)
 			}
+			rows[0].roles = rows[0].roles.split(',');
 			return done(null, rows[0])
 		})
 	}
