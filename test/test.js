@@ -1,7 +1,14 @@
 (function() {
 
+	// var emitter = require('emitter');
+	process.setMaxListeners(20)
+
+	var path = require('path');
+
 	var sinon = require('sinon');
 	var fakeredis = require('fakeredis');
+
+	var mysql = fakemysql();
 
 	var assert = require('assert');
 	var server = require('../express-scaffold');
@@ -9,11 +16,28 @@
 
 	var sessionCookie;
 	var rememberCookie;
+	var cookieDomain = 'fakedomain.com'
 
 	before(function(done) {
-		server.addRedisSessions({
-			client: fakeredis.createClient()
-		});
+
+		server
+			// .jadeDir('./jade')
+			// .staticDir(['./static'])
+			.redis(fakeredis.createClient())
+			.mysql(mysql)
+			.cookieConfig({
+				domain: cookieDomain
+			})
+			.web();
+
+		// server.web({
+		// 	redis: fakeredis.createClient(),
+		// 	mysql: mysql
+		// });
+
+		// server.addRedisSessions({
+		// 	client: fakeredis.createClient()
+		// });
 		mochaHttp.openPort(function(err, port) {
 			server.start(port, done)
 			routes(server);
@@ -23,7 +47,8 @@
 	describe('errors', function() {
 		var _server;
 		beforeEach(function() {
-			_server = server.ExpressScaffold();
+			_server = server.ExpressMiddlewareBundle();
+			_server.set('dontPrintErrors', true)
 		});
 
 		it('need a port', function() {
@@ -38,54 +63,57 @@
 			}, /redis config or client required/);
 		})
 
-		it('authentication error' , function(done){
+		it('authentication error', function(done) {
 			var _mochaHttp = mochaHttp.MochaHttpUtils();
-			
+
 			_server.authenticationLogin(function(req, u, p, cb) {
 				cb('authenticatibbbonLogin error');
-			});			
+			});
 			_server.deserializeUser = function(string, cb) {
 				return cb('serialize error')
 			}
 
-			_server.addRedisSessions({client: fakeredis.createClient()});
+			_server.addRedisSessions({
+				client: fakeredis.createClient()
+			});
 			_server.app.post('/login', _server.login.bind(_server));
 			_server.errorHandler();
 
-			_mochaHttp.openPort(function(err, p){
+			_mochaHttp.openPort(function(err, p) {
 
-				_server.start(p, function(){
+				_server.start(p, function() {
 					_mochaHttp.http({
 						path: 'login',
-						method:'post',
+						method: 'post',
 						json: true,
-						body:{
+						body: {
 							username: 'a',
 							password: 'b'
 						},
 						status: 500
-					}, done)					
+					}, done)
 				})
 			})
 		});
 
-		it('req.login error' , function(done){
+		it('req.login error', function(done) {
 			var _mochaHttp = mochaHttp.MochaHttpUtils();
-		
-			_server.authenticationLogin(function(req, u, p, cb) {
-				// console.info('authenticationLogin');
-				cb(null, {id: 2});
-			});			
 
-			_server.addRedisSessions({client: fakeredis.createClient()});
+			_server.authenticationLogin(function(req, u, p, cb) {
+				cb(null, {
+					id: 2
+				});
+			});
+
+			_server.addRedisSessions({
+				client: fakeredis.createClient()
+			});
 
 			_server.app.post(
-				'/login', 
-				function(req, res, next){
+				'/login',
+				function(req, res, next) {
 
-					// console.info(req.login)
-					req.login = function(user, req, cb){
-						// console.info('my req.login')
+					req.login = function(user, req, cb) {
 						return cb(new Error('req.login error'))
 					}
 					next();
@@ -95,26 +123,63 @@
 			);
 			_server.errorHandler();
 
+			_mochaHttp.openPort(function(err, p) {
 
-
-			_mochaHttp.openPort(function(err, p){
-
-				_server.start(p, function(){
+				_server.start(p, function() {
 					_mochaHttp.http({
 						path: 'login',
-						method:'post',
+						method: 'post',
 						json: true,
-						body:{
+						body: {
 							username: 'a',
 							password: 'b'
 						},
 						status: 500
-					}, done)					
+					}, done)
 				})
 			})
 		});
 
+		it('verifyRememberMe, no redis', function(){
+			assert.throws(function(){
+				_server.verifyRememberMe('a')
+			}, 'requires redis')
+		})
+
+		it('issueRememberMe, no redis', function(){
+			assert.throws(function(){
+				_server.issueRememberMe('a')
+			}, 'requires redis')
+		})
+
+		it('apiAuth, no mysql', function(){
+			assert.throws(function(){
+				_server.apiAuth('a')
+			}, 'mysql client required')
+		})
+
+		it('verifyPassword err',function(done){
+			server.verifyPassword(1, 2 ,null, function(err){
+				assert(err)
+				done();
+			})
+		})
+
+		it('deserializeUser err',function(done){
+			server.deserializeUser(-1, function(err){
+				assert(err)
+				done();
+			})
+		})
 	});
+
+	describe('web, no redis or mysql',function(){
+		var _server = server.ExpressMiddlewareBundle();
+		var _mochaHttp = mochaHttp.MochaHttpUtils();
+
+		_server.web();
+
+	})
 
 	describe('messages/shutdown', function() {
 		var _server;
@@ -138,7 +203,7 @@
 			}
 
 			_mochaHttp.openPort(function(err, port) {
-				_server = server.ExpressScaffold()
+				_server = server.ExpressMiddlewareBundle()
 				_server.app.get('/slow', function(req, res) {
 					setTimeout(function() {
 						return res.end()
@@ -179,10 +244,8 @@
 
 	});
 
-	
-
 	describe('gzip', function() {
-		var _server = server.ExpressScaffold();
+		var _server = server.ExpressMiddlewareBundle();
 		var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 		// beforeEach(function(){
@@ -190,18 +253,21 @@
 		// })
 
 		it('compressed', function(done) {
-			var _server = server.ExpressScaffold();
+			var _server = server.ExpressMiddlewareBundle();
 			var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 			_server.addGzip({
 				threshold: 1,
 			});
-			_server.app.get('/',function(req,res, next){
-				res.json({abc: 123})
-			})			
+			_server.addGzip() // still works with extra call to addGzip
+			_server.app.get('/', function(req, res, next) {
+				res.json({
+					abc: 123
+				})
+			})
 
 			_mochaHttp.openPort(function(err, port) {
-				_server.start(port, function(){
+				_server.start(port, function() {
 					_mochaHttp.http({
 						path: '',
 						headers: {
@@ -210,46 +276,50 @@
 						resHeaders: {
 							'content-encoding': 'gzip'
 						},
-					}, done)					
+					}, done)
 				})
 			});
 		});
 
 		it('not compressesed, req headers', function(done) {
-			var _server = server.ExpressScaffold();
+			var _server = server.ExpressMiddlewareBundle();
 			var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 			_server.addGzip({
 				threshold: 1,
 			});
-			_server.app.get('/',function(req,res, next){
-				res.json({abc: 123})
-			})			
+			_server.app.get('/', function(req, res, next) {
+				res.json({
+					abc: 123
+				})
+			})
 
 			_mochaHttp.openPort(function(err, port) {
-				_server.start(port, function(){
+				_server.start(port, function() {
 					_mochaHttp.http({
 						path: '',
 						resHeaders: {
 							'content-encoding': null
 						},
-					}, done)					
+					}, done)
 				})
-			});			
-		});	
+			});
+		});
 
 		it('not compressesed, threshold', function(done) {
-			var _server = server.ExpressScaffold();
+			var _server = server.ExpressMiddlewareBundle();
 			var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 			_server.addGzip();
 
-			_server.app.get('/',function(req,res, next){
-				res.json({abc: 123})
+			_server.app.get('/', function(req, res, next) {
+				res.json({
+					abc: 123
+				})
 			})
 
 			_mochaHttp.openPort(function(err, port) {
-				_server.start(port, function(){
+				_server.start(port, function() {
 					_mochaHttp.http({
 						path: '',
 						headers: {
@@ -258,15 +328,13 @@
 						resHeaders: {
 							'content-encoding': null
 						},
-					}, done)					
+					}, done)
 				})
 			});
-		});		
+		});
 	});
 
-
 	describe('query and body parser', function() {
-
 
 		it('query', function(done) {
 			mochaHttp.http({
@@ -310,6 +378,8 @@
 			})
 		});
 
+
+
 		it('start session', function(done) {
 			mochaHttp.http({
 				path: 'set-session',
@@ -319,7 +389,22 @@
 				}
 			}, function(err, res, body) {
 				assert(res.headers['set-cookie'][0]);
-				sessionCookie = res.headers['set-cookie'][0]
+				sessionCookie = res.headers['set-cookie'][0];
+				done();
+			})
+		});
+
+		it('check cookie domain', function(done) {
+			mochaHttp.http({
+				path: 'set-session',
+				params: {
+					key: 'started',
+					value: 'yes'
+				}
+			}, function(err, res, body) {
+				assert(res.headers['set-cookie'][0]);
+				sessionCookie = res.headers['set-cookie'][0];
+				assert(sessionCookie.indexOf('Domain=' + cookieDomain + ';') > -1)
 				done();
 			})
 		});
@@ -339,11 +424,11 @@
 			}, done)
 		});
 
-		it('cross process', function(done){
+		it('cross process', function(done) {
 			var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 			_mochaHttp.openPort(function(err, port) {
-				var _server = server.ExpressScaffold();
+				var _server = server.ExpressMiddlewareBundle();
 				_server.addRedisSessions({
 					client: fakeredis.createClient()
 				});
@@ -352,9 +437,9 @@
 					return res.json({
 						value: req.session ? req.session[req.query.key] : false
 					});
-				});				
+				});
 
-				_server.start(port, function(){
+				_server.start(port, function() {
 					mochaHttp.http({
 						path: 'check-session',
 						headers: {
@@ -368,9 +453,40 @@
 						}
 					}, done)
 				})
-			});			
+			});
 		});
 
+		it('cookie domain', function(done) {
+			var _mochaHttp = mochaHttp.MochaHttpUtils();
+
+			_mochaHttp.openPort(function(err, port) {
+				var _server = server.ExpressMiddlewareBundle();
+				_server.addRedisSessions({
+					client: fakeredis.createClient()
+				});
+
+				_server.app.get('/check-session', function(req, res) {
+					return res.json({
+						value: req.session ? req.session[req.query.key] : false
+					});
+				});
+
+				_server.start(port, function() {
+					mochaHttp.http({
+						path: 'check-session',
+						headers: {
+							'cookie': sessionCookie
+						},
+						params: {
+							key: 'started'
+						},
+						resJson: {
+							value: 'yes'
+						}
+					}, done)
+				})
+			});
+		});
 
 
 	});
@@ -380,11 +496,7 @@
 			mochaHttp.http({
 				path: 'authenticated',
 				status: 401
-			}, function(err, res, body) {
-				// console.info(body)
-				// console.info(res.statusCode)
-				done()
-			})
+			}, done)
 
 		});
 
@@ -438,6 +550,29 @@
 			}, done)
 		});
 
+		it('apikey, mysql err', function(done) {
+			mochaHttp.http({
+				path: 'authenticated',
+				params: {
+					apikey: 'mysqlerr'
+				},
+				status: 401
+			}, done)
+		});
+
+		it('apikey, inactive', function(done) {
+			mochaHttp.http({
+				path: 'authenticated',
+				params: {
+					apikey: 'inactive'
+				},
+				status: 401
+			}, function(err, res, body){
+				assert(body.indexOf('inactive'));
+				done()
+			})
+		});
+
 		it('bad apikey', function(done) {
 			mochaHttp.http({
 				path: 'authenticated',
@@ -446,7 +581,7 @@
 				},
 				status: 401
 			}, done)
-		});	
+		});
 
 		it('apikey, no session', function(done) {
 			mochaHttp.http({
@@ -457,8 +592,8 @@
 				resJson: {
 					// success: true,
 					user: 'user'
-				}				
-			}, function(err, res, body){
+				}
+			}, function(err, res, body) {
 				mochaHttp.http({
 					path: 'authenticated',
 					headers: {
@@ -467,7 +602,61 @@
 					status: 401
 				}, done);
 			})
+		});
+
+		it('loginFn mysql error', function(done) {
+			mochaHttp.http({
+				path: 'login',
+				method: 'post',
+				json: true,
+				body: {
+					username: 'error',
+					password: 'password'
+				},
+				status: 500
+			}, done)
+		});
+
+		it('login inactive user', function(done) {
+			mochaHttp.http({
+				path: 'login',
+				method: 'post',
+				json: true,
+				body: {
+					username: 'inactive',
+					password: 'password'
+				},
+				status: 401
+			}, done)
+		});
+
+
+		it('salted password fail', function(done) {
+			mochaHttp.http({
+				path: 'login',
+				method: 'post',
+				json: true,
+				body: {
+					username: 'salted',
+					password: 'salted'
+				},
+				status: 401
+			}, done)
+		});
+
+		it('salted password success', function(done) {
+			mochaHttp.http({
+				path: 'login',
+				method: 'post',
+				json: true,
+				body: {
+					username: 'salted2',
+					password: 'salted'
+				},
+				// status: 401
+			}, done)
 		});		
+
 
 		it('login success', function(done) {
 			mochaHttp.http({
@@ -493,20 +682,20 @@
 					resJson: {
 						// success: true,
 						user: 'user'
-					},					
+					},
 				}, done);
 
 			})
 		});
 
-		it('cross process, different session secret', function(done){
+		it('cross process, different session secret', function(done) {
 			var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 			_mochaHttp.openPort(function(err, port) {
-				var _server = server.ExpressScaffold();
+				var _server = server.ExpressMiddlewareBundle();
 				_server.addRedisSessions({
 					client: fakeredis.createClient()
-				},{
+				}, {
 					secret: 'different secret'
 				});
 
@@ -517,9 +706,9 @@
 					return res.json({
 						value: req.session ? req.session[req.query.key] : false
 					});
-				});				
+				});
 
-				_server.start(port, function(){
+				_server.start(port, function() {
 					_mochaHttp.http({
 						path: '',
 						headers: {
@@ -528,109 +717,13 @@
 						status: 401
 					}, done)
 				})
-			});			
+			});
 		});
-
-
-
-
-
-		// it('logout, clear old session and start new one', function(done) {
-		// 	mochaHttp.http({
-		// 		headers: {
-		// 			'cookie': sessionCookie
-		// 		},
-		// 		path: 'logout'
-		// 	}, function(err, res, body) {
-
-		// 		assert(res.headers['set-cookie'][0]);
-		// 		var newSessionCookie = res.headers['set-cookie'][0]				
-				
-		// 		// neither session is authenticated
-		// 		mochaHttp.http({
-		// 			path: 'authenticated',
-		// 			headers: {
-		// 				'cookie': sessionCookie
-		// 			},
-		// 			status: 401
-		// 		}, function(err, res, body){
-		// 			mochaHttp.http({
-		// 				path: 'authenticated',
-		// 				headers: {
-		// 					'cookie': newSessionCookie
-		// 				},
-		// 				status: 401
-		// 			}, done);
-		// 		})
-		// 	});
-		// });
-
-		// it('verify old session was deleted on logout', function(done){
-		// 	mochaHttp.http({
-		// 		path: 'login',
-		// 		method: 'post',
-		// 		headers: {
-		// 			'cookie': sessionCookie
-		// 		},
-		// 		json: true,
-		// 		body: {
-		// 			username: 'user',
-		// 			password: 'password'
-		// 		},
-		// 		resJson: {
-		// 			success: true
-		// 		},
-		// 	}, function(err, res, body) {
-		// 		assert(res.headers['set-cookie'][0]);
-		// 		sessionCookie = res.headers['set-cookie'][0]
-
-		// 		mochaHttp.http({
-		// 			path: 'authenticated',
-		// 			headers: {
-		// 				'cookie': sessionCookie
-		// 			},
-		// 			resJson:{
-		// 				requestCount: 1
-		// 			}
-
-		// 		}, done);
-
-		// 	})			
-		// });
-
-
-		// it('logout, clear old session and start new one', function(done) {
-		// 	console.info(sessionCookie)
-		// 	mochaHttp.http({
-		// 		headers: {
-		// 			'cookie': sessionCookie
-		// 		},
-		// 		path: 'logout'
-		// 	}, function(err, res, body) {
-		// 		console.info(res.headers)
-				
-
-		// 		assert(res.headers['set-cookie'][0]);
-		// 		var newSessionCookie = res.headers['set-cookie'][0]				
-				
-		// 		// neither session is authenticated
-		// 		mochaHttp.http({
-		// 			path: 'authenticated',
-		// 			headers: {
-		// 				'cookie': sessionCookie
-		// 			},
-		// 			status: 401
-		// 		}, done)
-		// 	});
-		// });
-
-
-
 
 	});
 
-	describe('logout', function(){
-		it('redirect, cookie expiration', function(done){
+	describe('logout', function() {
+		it('redirect, cookie expiration', function(done) {
 			mochaHttp.http({
 				headers: {
 					'cookie': sessionCookie
@@ -638,18 +731,18 @@
 				path: 'logout',
 				followRedirect: false,
 				status: 302
-			}, function(err, res, body){
+			}, function(err, res, body) {
 
 				// got new cookie with very close expiration date
 				assert(res.headers['set-cookie'][0]);
 				var date = res.headers['set-cookie'][0].replace(/.*Expires=(.*?)\;.*/, "$1")
 				date = new Date(date);
-				assert(date.valueOf() <=  Date.now() + 1000)
+				assert(date.valueOf() <= Date.now() + 1000)
 				done();
 			});
 		});
 
-		it('no longer authenticated', function(done){
+		it('no longer authenticated', function(done) {
 			mochaHttp.http({
 				path: 'authenticated',
 				headers: {
@@ -660,15 +753,18 @@
 		})
 	});
 
-	describe('remember me', function(){
+	describe('remember me', function() {
+
 		var _mochaHttp = mochaHttp.MochaHttpUtils();
-		var _server = server.ExpressScaffold();
-		before(function(done){
+		var _server = server.ExpressMiddlewareBundle();
+
+		before(function(done) {
 			_mochaHttp.openPort(function(err, port) {
-				
-				_server.addRedisSessions({
-					client: fakeredis.createClient()
-				});
+
+				_server
+					.redis(fakeredis.createClient())
+					.mysql(mysql)
+					.web();
 
 				_server.deserializeUser = function(string, cb) {
 					var user;
@@ -680,29 +776,29 @@
 					}
 					return cb(null, user)
 				}
-				_server.authenticationLogin(function(req, u, p, cb) {
-					if (u === 'user' && p === 'password') {
-						return cb(null, {
-							id: 1
-						});
-					} else {
-						return cb(null, null, {
-							message: 'bad credentials'
-						});
-					}
-				});
+				// _server.authenticationLogin(function(req, u, p, cb) {
+				// 	if (u === 'user' && p === 'password') {
+				// 		return cb(null, {
+				// 			id: 1
+				// 		});
+				// 	} else {
+				// 		return cb(null, null, {
+				// 			message: 'bad credentials'
+				// 		});
+				// 	}
+				// });
 
 				var genToken = 1;
-				_server.authenticationRememberMe(function verify(token, _done) {
-					if(token == genToken){
-						return _done(null, {
-							id: 1
-						});
-					}
-					_done();
-				}, function issue(user, _done){
-					_done(null, ++genToken);
-				});
+				// _server.authenticationRememberMe(function verify(token, _done) {
+				// 	if(token == genToken){
+				// 		return _done(null, {
+				// 			id: 1
+				// 		});
+				// 	}
+				// 	_done();
+				// }, function issue(user, _done){
+				// 	_done(null, ++genToken);
+				// });
 
 				_server.app.post('/login', _server.login.bind(_server));
 				_server.app.get('/logout', _server.logout.bind(_server));
@@ -710,24 +806,19 @@
 				// every route after this requires authentication
 				_server.app.use(server.authenticated.bind(server));
 
-
 				_server.app.get('/set', function(req, res) {
 					req.session[req.query.key] = req.query.value;
 					res.end();
-				});				
+				});
 				_server.app.get('/', function(req, res) {
 					return res.json({
 						value: req.session ? req.session[req.query.key] : false
 					});
-				});				
+				});
 
 				_server.start(port, done);
-			});				
+			});
 		})
-
-
-
-	
 
 		it('login', function(done) {
 			_mochaHttp.http({
@@ -740,7 +831,6 @@
 					remember_me: true
 				}
 			}, function(err, res, body) {
-				// console.info(res.headers)
 				assert(res.headers['set-cookie'][0]);
 				assert(res.headers['set-cookie'][1]);
 				rememberCookie = res.headers['set-cookie'][0];
@@ -750,15 +840,13 @@
 			})
 		});
 
-		it('remember_me cookie only', function(done){
+		it('remember_me cookie only', function(done) {
 			_mochaHttp.http({
 				path: '',
 				headers: {
 					'cookie': rememberCookie
-					// 'cookie': [sessionCookie, rememberCookie]
 				}
-			}, function(err, res, body){
-				// console.info(res.headers);
+			}, function(err, res, body) {
 				assert.notEqual(res.headers['set-cookie'][0], rememberCookie);
 				assert.notEqual(res.headers['set-cookie'][1], sessionCookie);
 				rememberCookie = res.headers['set-cookie'][0];
@@ -769,24 +857,24 @@
 			});
 		});
 
-		it('remember_me and session cookies, previous session maintained', function(done){
+		it('remember_me and session cookies, previous session maintained', function(done) {
 			_mochaHttp.http({
 				path: 'set',
-				params:{
+				params: {
 					key: 'hey',
 					value: 'there'
 				},
 				headers: {
 					'cookie': [sessionCookie, rememberCookie]
 				}
-			}, function(err, res, body){
+			}, function(err, res, body) {
 
 				_mochaHttp.http({
 					path: '',
-					params:{
+					params: {
 						key: 'hey'
 					},
-					resJson:{
+					resJson: {
 						value: 'there'
 					},
 					headers: {
@@ -795,10 +883,9 @@
 				}, done);
 
 			});
-		});		
+		});
 
-
-		it('logout', function(done){
+		it('logout', function(done) {
 
 			_mochaHttp.http({
 				headers: {
@@ -807,13 +894,10 @@
 				path: 'logout',
 				followRedirect: false,
 				status: 302
-			}, function(err, res, body){
-				// console.info(res.headers);
-				done();
-			});
-		});		
+			}, done);
+		});
 
-		it('old session cookie not good anymore', function(done){
+		it('old session cookie not good anymore', function(done) {
 			_mochaHttp.http({
 				path: '',
 				headers: {
@@ -824,15 +908,13 @@
 			}, done);
 		});
 
-		it('log back in with remember_me', function(done){
+		it('log back in with remember_me', function(done) {
 			_mochaHttp.http({
 				path: '',
 				headers: {
 					'cookie': rememberCookie
-					// 'cookie': [sessionCookie, rememberCookie]
 				}
-			}, function(err, res, body){
-				// console.info(res.headers);
+			}, function(err, res, body) {
 				assert.notEqual(res.headers['set-cookie'][0], rememberCookie);
 				assert.notEqual(res.headers['set-cookie'][1], sessionCookie);
 				rememberCookie = res.headers['set-cookie'][0];
@@ -843,48 +925,204 @@
 			});
 		});
 
+		it('previous session is gone', function(done) {
 
-		it('previous session is gone', function(done){
+			_mochaHttp.http({
+				path: '',
+				params: {
+					key: 'hey'
+				},
+				resJson: {
+					value: null
+				},
+				headers: {
+					'cookie': [sessionCookie, rememberCookie]
+				}
+			}, done);
+
+		});
+
+	})
+
+	describe('jade', function(){
+		var _server = server.ExpressMiddlewareBundle();
+		var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 
-				_mochaHttp.http({
-					path: '',
-					params:{
-						key: 'hey'
-					},
-					resJson:{
-						value: null
-					},
-					headers: {
-						'cookie': [sessionCookie, rememberCookie]
-					}
-				}, done);
+		beforeEach(function(){
+			_server = server.ExpressMiddlewareBundle();
+			_mochaHttp = mochaHttp.MochaHttpUtils();
+		});
 
+		it('error, no dir',function(){
+			assert.throws(function() {
+				_server.addJade();
+			}, /dir required/);
+		});
+
+		it('error, bad dir',function(){
+			assert.throws(function() {
+				_server.addJade('./test/jade2');
+			}, /no such file or dir/);
+		});
+
+		it('error, file instead of dir',function(){
+			assert.throws(function() {
+				_server.addJade('./test/jade/template.jade');
+			}, /is not a dir/);
+		});
+
+		it('render template', function(done){
+
+			_server.addJade('./test/jade');
+			_server.get('/',function(req,res){
+				res.render('template');		
+			});
+
+			_mochaHttp.openPort(function(err, port) {
+				_server.start(port, function() {
+					_mochaHttp.http({
+						path: '',
+					}, done)
+				})
+			});		
+		})
+
+	});
+
+	describe('static', function() {
+		var _server = server.ExpressMiddlewareBundle();
+		var _mochaHttp = mochaHttp.MochaHttpUtils();
+
+
+		beforeEach(function(){
+			_server = server.ExpressMiddlewareBundle();
+			_mochaHttp = mochaHttp.MochaHttpUtils();
+		});
+
+
+		it('error, no dir',function(){
+			assert.throws(function() {
+				_server.addStaticDir();
+			}, /dir required/);
+		});
+
+		it('error, bad dir',function(){
+			assert.throws(function() {
+				_server.addStaticDir('./test/static3');
+			}, /no such file or dir/);
+		});
+
+		it('error, file instead of dir',function(){
+			assert.throws(function() {
+				_server.addStaticDir('./test/static1/test.txt');
+			}, /is not a dir/);
+		});
+
+		it('single path, default route',function(done){
+
+			_server.addStaticDir('./test/static1');
+
+			_mochaHttp.openPort(function(err, port) {
+				_server.start(port, function() {
+					_mochaHttp.http({
+						path: 'test.txt',
+						resJson: {
+							hey: 'there'
+						}
+					}, done)
+				})
+			});			
+		});
+
+		it('bad route in declaration, 404',function(done){
+
+			_server.addStaticDir('./test/static1', 'mounted');
+
+			_mochaHttp.openPort(function(err, port) {
+				_server.start(port, function() {
+
+					_mochaHttp.http({
+						path: 'mounted/test.txt',
+						status: 404
+					}, done)						
+				})
+			});			
+		});
+
+		it('single path, custom route',function(done){
+
+			_server.addStaticDir('./test/static1', '/mounted');
+
+			_mochaHttp.openPort(function(err, port) {
+				_server.start(port, function() {
+
+					_mochaHttp.http({
+						path: 'test.txt',
+						status: 404
+					}, function(){
+						_mochaHttp.http({
+							path: 'mounted/test.txt'
+						}, done)						
+					})
+
+
+
+				})
+			});			
+		});
+
+		it('combo',function(done){
+
+			_server.addStaticDir('./test/static1', '/mounted');
+			_server.addStaticDir('./test/static2');
+			_server.addStaticDir('./test/jade', '/mounted');
+
+			_mochaHttp.openPort(function(err, port) {
+				_server.start(port, function() {
+
+					_mochaHttp.http({
+							path: 'mounted/test.txt'
+					}, function(){
+						_mochaHttp.http({
+							path: 'test2.txt'
+						}, function(){
+							_mochaHttp.http({
+								path: 'mounted/template.jade'
+							}, function(err, res, body){
+								assert(body.indexOf('Jade is a terse') > -1);
+								done();
+							});
+						})						
+					})
+
+
+
+				})
+			});			
 		});		
 
 
 
 
-
-	})
-
-
-	describe('static', function(){
-
 	});
 
 	function routes(server) {
 
-		server.deserializeUser = function(string, cb) {
-			var user;
-			if (string == 1) {
-				user = {
-					username: 'user',
-					id: 1
-				};
-			}
-			return cb(null, user)
-		}
+		// server.deserializeUser = function(string, cb) {
+		// 	var user;
+		// 	if (string == 1) {
+		// 		user = {
+		// 			username: 'user',
+		// 			id: 1
+		// 		};
+		// 	}
+		// 	return cb(null, user)
+		// }
+		// 
+		
+		server.addLogger();
+
 		server.authenticationLogin(function(req, u, p, cb) {
 			if (u === 'user' && p === 'password') {
 				return cb(null, {
@@ -908,59 +1146,199 @@
 			}
 		});
 
-		server.app.get('/', function(req, res) {
+		server.get('/', function(req, res) {
 			return res.json({
 				'hey': 'there'
 			})
 		});
 
-		server.app.get('/check-session', function(req, res) {
+		server.get('/check-session', function(req, res) {
 			return res.json({
 				value: req.session ? req.session[req.query.key] : false
 			});
 		});
-		server.app.get('/set-session', function(req, res) {
+		server.get('/set-session', function(req, res) {
 			req.session[req.query.key] = req.query.value
 			return res.end();
 		});
 
-		server.app.get('/params', function(req, res) {
+		server.get('/params', function(req, res) {
 			return res.json([req.query || {},
 				req.body || {}]);
 		})
-		server.app.post('/params', function(req, res) {
+		server.post('/params', function(req, res) {
 			return res.json([req.query || {},
 				req.body || {}]);
 		})
 
 		// https://github.com/strongloop/express/issues/782
-		server.app.post('/login', server.login.bind(server));
-		server.app.get('/logout', server.logout.bind(server));
+		server.post('/login', server.login.bind(server));
+		server.get('/logout', server.logout.bind(server));
 
 		// every route after this requires authentication
-		server.app.use(server.authenticated.bind(server));
+		server.use(server.authenticated.bind(server));
 
-		server.app.get('/authenticated', function(req, res, next) {
+		server.get('/authenticated', function(req, res, next) {
 			res.status(401);
-			// console.info(req.user)
+
 			var count = 1;
 			if (req.isAuthenticated() || req.user) {
 				res.status(200);
 			}
-			if(req.session){
-				if(!req.session.requestCount){
+			if (req.session) {
+				if (!req.session.requestCount) {
 					req.session.requestCount = 1;
-				}
-				else{
-					req.session.requestCount++;	
+				} else {
+					req.session.requestCount++;
 				}
 				count = req.session.requestCount
 			}
 
-
-			
-			res.json({requestCount: count, user: req.user.username })
+			res.json({
+				requestCount: count,
+				user: req.user.username
+			})
 		})
+	}
+
+	function fakemysql() {
+		var _mysql = {
+			query: function(q, p, cb) {
+				// console.info(arguments);
+				if (
+					q === 'select id, password, salted, active from users where username = ?' && p && p[0] === 'user1'
+				) {
+					return cb(null, [])
+				}
+				if (
+					q === 'select id, password, salted, active from users where username = ?' && p && p[0] === 'error'
+				) {
+					return cb('mysql fakeerror')
+				}
+
+				if (
+					q === 'select id, password, salted, active from users where username = ?' && p && p[0] === 'inactive'
+				) {
+					return cb(null, [{
+						id: 1,
+						password: 'password',
+						salted: 0,
+						active: 0,
+						username: 'inactive'
+					}])
+				}
+
+				if (
+					q === 'select id, password, salted, active from users where username = ?' && p && p[0] === 'salted'
+				) {
+					return cb(null, [{
+						id: 1,
+						password: 'salted',
+						salted: 1,
+						active: 1,
+						username: 'salted'
+					}])
+				}
+
+				if (
+					q === 'select id, password, salted, active from users where username = ?' && p && p[0] === 'salted2'
+				) {
+					return cb(null, [{
+						id: 1,
+						// password: '273cd801a1c998e570f9440191514d15f6cfa247',
+						password: '$2a$10$AQv.Vf5iH/tGMnfpUzWDOuPoTtLo6bjRdawqdzopTmOsDH6JtzZ4G',
+						salted: 1,
+						active: 1,
+						username: 'salted2'
+					}])
+				}
+
+				if (
+					q === 'select u.id from  api_keys k join users u on (k.user_id = u.id) where apikey = ?' && p && p[0] == '1234'
+				) {
+					return cb(null, [])
+				}
+				if (
+					q === 'select u.id from  api_keys k join users u on (k.user_id = u.id) where apikey = ?' && p && p[0] == '123'
+				) {
+					return cb(null, [{
+						id: 1
+					}])
+				}
+				if (
+					q === 'select u.id from  api_keys k join users u on (k.user_id = u.id) where apikey = ?' && p && p[0] == 'mysqlerr'
+				) {
+					return cb('mysql errir')
+				}
+				if (
+					q === 'select u.id from  api_keys k join users u on (k.user_id = u.id) where apikey = ?' && p && p[0] == 'inactive'
+				) {
+					return cb(null, [{
+						id: 10,
+						active: 0
+					}])
+				}
+
+
+				if (
+					q === 'select id, password, salted, active from users where username = ?' && p && p[0] == 'user'
+				) {
+					return cb(null, [{
+						id: 1,
+						password: 'password',
+						salted: 0,
+						active: 1
+					}])
+				}
+
+				if (
+					q === 'select * from users where username = ? and password = SHA1(?)' && p && p[0] == 'user' && p[1] == 'password'
+				) {
+					return cb(null, [{
+						id: 1,
+						password: 'password',
+						salted: 0,
+						active: 1,
+						username: 'user'
+					}])
+				}
+
+				if (
+					q === 'select * from users where username = ?' && p && p[0] == 'salted2'
+				) {
+					return cb(null, [{
+						id: 1,
+						password: '$2a$10$AQv.Vf5iH/tGMnfpUzWDOuPoTtLo6bjRdawqdzopTmOsDH6JtzZ4G',
+						salted: 1,
+						active: 1,
+						username: 'salted2'
+					}])
+				}
+
+
+				if (
+					q === 'select * from users where id = ?' && p && p[0] == 1
+				) {
+					return cb(null, [{
+						id: 1,
+						password: 'password',
+						salted: 0,
+						active: 1,
+						username: 'user'
+					}])
+				}
+
+				if (
+					q === 'select * from users where id = ?' && p && p[0] == -1
+				) {
+					return cb('error')
+				}
+
+				cb('unknow query')
+			}
+			
+		}
+		return _mysql;	
 	}
 
 }).call(this);
