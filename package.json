@@ -1,7 +1,7 @@
 {
   "name": "express-middlelware-bundle",
-  "version": "0.0.1",
-  "description": "ease use of microservices",
+  "version": "0.0.2",
+  "description": "express with auth and sessions bundled in",
   "main": "express-middlelware-bundle.js",
   "scripts": {
     "test": "./node_modules/istanbul/lib/cli.js cover ./node_modules/.bin/_mocha",
