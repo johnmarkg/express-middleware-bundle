@@ -18,6 +18,8 @@
 	var rememberCookie;
 	var cookieDomain = 'fakedomain.com'
 
+	var spyError = sinon.spy(console ,'error');	
+
 	before(function(done) {
 
 		server
@@ -112,13 +114,11 @@
 			_server.app.post(
 				'/login',
 				function(req, res, next) {
-
 					req.login = function(user, req, cb) {
 						return cb(new Error('req.login error'))
 					}
 					next();
 				},
-
 				_server.login.bind(_server)
 			);
 			_server.errorHandler();
@@ -139,6 +139,60 @@
 				})
 			})
 		});
+
+		it('dontPrintErrors false', function(done) {
+			var _mochaHttp = mochaHttp.MochaHttpUtils();
+			_server.set('dontPrintErrors', false)
+			_server.app.get(
+				'/',
+				function(req, res, next) {
+					next('expected error');
+				}
+			);
+			_server.errorHandler();
+
+			spyError.reset();
+
+			_mochaHttp.openPort(function(err, p) {
+
+				_server.start(p, function() {
+					_mochaHttp.http({
+						path: '',
+						status: 500
+					}, function(err, res, body){
+						assert.equal(2, spyError.callCount);
+						done();
+					});
+				})
+			})
+		});
+
+		it('dontPrintErrors true', function(done) {
+			var _mochaHttp = mochaHttp.MochaHttpUtils();
+			_server.set('dontPrintErrors', true)
+			_server.app.get(
+				'/',
+				function(req, res, next) {
+					next('expected error');
+				}
+			);
+			_server.errorHandler();
+
+			spyError.reset();
+
+			_mochaHttp.openPort(function(err, p) {
+
+				_server.start(p, function() {
+					_mochaHttp.http({
+						path: '',
+						status: 500
+					}, function(err, res, body){
+						assert.equal(0, spyError.callCount);
+						done();
+					});
+				})
+			})
+		});		
 
 		it('verifyRememberMe, no redis', function(){
 			assert.throws(function(){
@@ -722,6 +776,38 @@
 
 	});
 
+	describe('checkRoles', function(){
+		it('pass', function(done){
+			mochaHttp.http({
+				headers: {
+					'cookie': sessionCookie
+				},
+				path: 'roleA'
+			}, done);			
+		});
+
+		it('pass2', function(done){
+			mochaHttp.http({
+				headers: {
+					'cookie': sessionCookie
+				},
+				path: 'roleBorC'
+			}, done);			
+		});
+
+		it('fail', function(done){
+			mochaHttp.http({
+				headers: {
+					'cookie': sessionCookie
+				},
+				path: 'roleC',
+				status: 403
+			}, done);			
+		})		
+
+
+	})
+
 	describe('logout', function() {
 
 		var headers;
@@ -1161,6 +1247,7 @@
 		server.get('/authenticated', function(req, res, next) {
 			res.status(401);
 
+
 			var count = 1;
 			if (req.isAuthenticated() || req.user) {
 				res.status(200);
@@ -1179,6 +1266,30 @@
 				user: req.user.username
 			})
 		})
+
+		server.get(
+			'/roleA',
+			server.checkRoles.bind(server,['roleA']),
+			function(req, res){
+				res.end()
+			}
+		)
+		server.get(
+			'/roleC',
+			server.checkRoles.bind(server,['roleC']),
+			function(req, res){
+				res.end()
+			}
+		)		
+
+		server.get(
+			'/roleBorC',
+			server.checkRoles.bind(server,['roleB', 'roleC']),
+			function(req, res){
+				res.end()
+			}
+		)		
+
 	}
 
 	function fakemysql() {

@@ -51,18 +51,35 @@ server.get('/logout', server.logout.bind(server));
 //------------------------------------
 // add routes that dont need authentication
 //------------------------------------
-server.get('nonauth-route', function(req,res,next){
-	res.end('you are NOT authenticated')
-})
+server.get(
+	'/nonauth-route', 
+	function(req,res,next){
+		res.end('you are NOT authenticated')
+	}
+);
 
 //------------------------------------
 // every route after this requires authentication
 //------------------------------------
 server.use(server.authenticated.bind(server));
 
-server.get('auth-route', function(req,res,next){
-	res.end('you are authenticated')	
-})
+server.get(
+	'/auth-route', 
+	function(req,res,next){
+		res.end('you are authenticated')	
+	}
+)
+
+//------------------------------------
+// check user roles
+//------------------------------------
+server.get(
+	'/needARole', 
+	server.checkRoles.bind(server,['roleA','roleB'])
+	function(req,res,next){
+		res.end('you have either roleA or roleB')	
+	}
+)
 
 
 server.start(port, function(){
