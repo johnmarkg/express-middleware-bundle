@@ -1,6 +1,6 @@
 {
   "name": "express-middleware-bundle",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "express with auth and sessions bundled in",
   "main": "express-middlelware-bundle.js",
   "scripts": {
