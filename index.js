@@ -51,16 +51,42 @@
 	};
 
 	//----------------------------------------
-	// setters
+	// setters/getters
 	//----------------------------------------
 	Scaff.prototype.redis = function(_redis) {
+		if(!_redis){
+			return this._redis;	
+		}
+
+		// janky client object detection
+		if(_redis._events){
+			debug('passed redis client');
+		}
+		else{
+			debug('passed redis config');
+			_redis = require('redis').createClient(_redis)
+		}
 		this._redis = _redis;
 		return this;
 	}
+	
 	Scaff.prototype.mysql = function(_mysql) {
+		if(!_mysql){
+			return this._mysql;	
+		}
+
+		// janky client object detection
+		if(_mysql._events){
+			debug('passed mysql client')
+		}
+		else{
+			_mysql = require('mysql').createConnection(_mysql)
+		}
 		this._mysql = _mysql;
+		// console.info(_mysql)
 		return this;
 	}
+	
 	Scaff.prototype.cookieConfig = function(_config) {
 		this._cookieConfig = _config;
 		return this;

@@ -1294,6 +1294,7 @@
 
 	function fakemysql() {
 		var _mysql = {
+			_events: 'fake events',
 			query: function(q, p, cb) {
 				// console.info(arguments);
 				if (
