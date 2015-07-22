@@ -1269,14 +1269,14 @@
 
 		server.get(
 			'/roleA',
-			server.checkRoles.bind(server,['roleA']),
+			server.checkRoles.bind(server,['roleX','roleA']),
 			function(req, res){
 				res.end()
 			}
 		)
 		server.get(
 			'/roleC',
-			server.checkRoles.bind(server,['roleC']),
+			server.checkRoles.bind(server,['roleX','roleC']),
 			function(req, res){
 				res.end()
 			}
@@ -1416,7 +1416,7 @@
 						salted: 0,
 						active: 1,
 						username: 'user',
-						roles: 'roleA,roleB'
+						roles: 'roleB,roleA'
 					}])
 				}
 
