@@ -723,7 +723,10 @@
 	});
 
 	describe('logout', function() {
-		it('redirect, cookie expiration', function(done) {
+
+		var headers;
+		
+		it('get redirected to /', function(done){
 			mochaHttp.http({
 				headers: {
 					'cookie': sessionCookie
@@ -731,15 +734,14 @@
 				path: 'logout',
 				followRedirect: false,
 				status: 302
-			}, function(err, res, body) {
-
-				// got new cookie with very close expiration date
-				assert(res.headers['set-cookie'][0]);
-				var date = res.headers['set-cookie'][0].replace(/.*Expires=(.*?)\;.*/, "$1")
-				date = new Date(date);
-				assert(date.valueOf() <= Date.now() + 1000)
+			}, function(err, res, body){
+				headers = res.headers;
 				done();
 			});
+		});
+
+		it('got empty session cookie', function(){
+			assert(headers['set-cookie'][0].indexOf(server.sessionCookieLabel + '=;') > -1)
 		});
 
 		it('no longer authenticated', function(done) {
@@ -776,29 +778,6 @@
 					}
 					return cb(null, user)
 				}
-				// _server.authenticationLogin(function(req, u, p, cb) {
-				// 	if (u === 'user' && p === 'password') {
-				// 		return cb(null, {
-				// 			id: 1
-				// 		});
-				// 	} else {
-				// 		return cb(null, null, {
-				// 			message: 'bad credentials'
-				// 		});
-				// 	}
-				// });
-
-				var genToken = 1;
-				// _server.authenticationRememberMe(function verify(token, _done) {
-				// 	if(token == genToken){
-				// 		return _done(null, {
-				// 			id: 1
-				// 		});
-				// 	}
-				// 	_done();
-				// }, function issue(user, _done){
-				// 	_done(null, ++genToken);
-				// });
 
 				_server.app.post('/login', _server.login.bind(_server));
 				_server.app.get('/logout', _server.logout.bind(_server));
@@ -833,6 +812,7 @@
 			}, function(err, res, body) {
 				assert(res.headers['set-cookie'][0]);
 				assert(res.headers['set-cookie'][1]);
+
 				rememberCookie = res.headers['set-cookie'][0];
 				sessionCookie = res.headers['set-cookie'][1];
 				done()

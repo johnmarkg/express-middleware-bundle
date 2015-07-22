@@ -36,6 +36,9 @@
 		this.delete = this.app.delete.bind(this.app)
 		this.put = this.app.put.bind(this.app)
 
+		this.rememberMeCookieLabel = 'rememberMe'
+		this.sessionCookieLabel = 'sessionId'
+
 		return this;
 	}
 
@@ -43,14 +46,6 @@
 	module.exports = new Scaff();
 
 	// use this to get a new, non cached object 
-	// 
-	// var server = require('express-scaffold') 
-	// var newServer = server.ExpressScaffold()
-	// 
-	// Scaff.prototype.ExpressScaffold = function() {
-	// 	return new Scaff();
-	// };
-
 	Scaff.prototype.ExpressMiddlewareBundle = function() {
 		return new Scaff();
 	};
@@ -217,7 +212,7 @@
 		// defaults
 		var _config = {
 			secret: 'do it',
-			key: 'sessionId',
+			key: this.sessionCookieLabel,
 			store: new RedisStore(redisConfig),
 			cookie: {
 				httpOnly: true,
@@ -247,11 +242,7 @@
 	//----------------------------------------
 	Scaff.prototype.serializeUser = function(user, done) {
 		debug('default serializeUser: ' + JSON.stringify(user));
-		// if (typeof user === 'object') {
-		// 	done(null, user.id);
-		// } else {
 		done(null, user);
-		// }
 	}
 
 	Scaff.prototype.deserializeUser = function(string, done) {
@@ -265,6 +256,7 @@
 				return done(err)
 			}
 			rows[0].roles = rows[0].roles.split(',');
+			delete rows[0].password;
 			return done(null, rows[0])
 		})
 	}
@@ -438,18 +430,22 @@
 
 		// if(typeof verify === 'function'){ this.verifyRememberMe = verify }
 		// if(typeof issue === 'function'){ this.issueRememberMe = issue }
-
+		var t = this;
 		this.addCookieParser();
 
 		this.passport.use(
-			new RememberMeStrategy(
+			new RememberMeStrategy({
+					key: t.rememberMeCookieLabel
+				},
 				this.verifyRememberMe.bind(this),
 				this.issueRememberMe.bind(this)
 			)
 		);
 
 		this.initPassport();
+		// flag for authenticationHandler, send cookie to client
 		this.rememberMe = true;
+
 		this.app.use(this.passport.authenticate('remember-me'));
 
 		return this;
@@ -535,7 +531,7 @@
 							debug('authenticationHandler: rememberMe err')
 							return next(err);
 						}
-						res.cookie('remember_me', token, {
+						res.cookie(t.rememberMeCookieLabel, token, {
 							path: '/',
 							httpOnly: true,
 							maxAge: 604800000
@@ -762,7 +758,12 @@
 
 		// this.app.use(morgan(':reqString :customMethod :time :urlWithUser :ua :params', {
 		// 	immediate: true,
-		// 	skip: skipFn
+		// 	skip: function(req){
+		// 		if(req.path === '/logout'){
+		// 			return false
+		// 		}
+		// 		return true
+		// 	}
 		// }));
 		this.app.use(morgan(':customStatus :customMethod :time :urlWithUser :ua :responseTime :splitTime :params', {
 			immediate: false,
@@ -879,20 +880,18 @@
 	//----------------------------------------
 	Scaff.prototype.logout = function(req, res, next) {
 
-		// to pass unit tests using fakeredis
-		req.session.cookie.maxAge = 1001
-
 		// clear passport session
 		req.logout();
 
-		res.redirect('/'); //Inside a callback… bulletproof!
-
 		// clear session in store
-		// delay session destroy to send cookie with new expiration to client	
-		setTimeout(function() {
-			req.session.destroy();
-		}, 50);
+		req.session.destroy();
 
+		// reset client cookies
+		res.cookie(this.sessionCookieLabel, '');
+		res.cookie(this.rememberMeCookieLabel, '');
+
+
+		res.redirect('/'); 
 	};
 
 	Scaff.prototype.login = function(req, res, next) {
