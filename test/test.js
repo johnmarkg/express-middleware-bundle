@@ -1,50 +1,42 @@
 (function() {
 
-	// var emitter = require('emitter');
 	process.setMaxListeners(20)
 
+	var request = require('supertest');
+
 	var path = require('path');
-
 	var sinon = require('sinon');
-	var fakeredis = require('fakeredis');
 
+	var fakeredis = require('fakeredis');
 	var mysql = fakemysql();
 
 	var assert = require('assert');
 	var server = require('../index');
-	var mochaHttp = require('mocha-http-utils');
 
 	var sessionCookie;
 	var rememberCookie;
 	var cookieDomain = 'fakedomain.com'
 
-	var spyError = sinon.spy(console ,'error');	
+	var spyError = sinon.spy(console, 'error');
 
-	before(function(done) {
+	before(function() {
 
 		server
-			// .jadeDir('./jade')
-			// .staticDir(['./static'])
-			.redis(fakeredis.createClient())
+			.redis(fakeredis.createClient('test'))
 			.mysql(mysql)
 			.cookieConfig({
 				domain: cookieDomain
 			})
 			.web();
 
-		// server.web({
-		// 	redis: fakeredis.createClient(),
-		// 	mysql: mysql
-		// });
+		server.app.set('dontPrintErrors', true)
 
-		// server.addRedisSessions({
-		// 	client: fakeredis.createClient()
-		// });
-		mochaHttp.openPort(function(err, port) {
-			server.start(port, done)
-			routes(server);
-		});
+		routes(server);
+
+		server.errorHandler();
 	});
+	
+
 
 	describe('errors', function() {
 		var _server;
@@ -66,7 +58,6 @@
 		})
 
 		it('authentication error', function(done) {
-			var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 			_server.authenticationLogin(function(req, u, p, cb) {
 				cb('authenticatibbbonLogin error');
@@ -76,41 +67,30 @@
 			}
 
 			_server.addRedisSessions({
-				client: fakeredis.createClient()
+				client: fakeredis.createClient('test')
 			});
 			_server.app.post('/login', _server.login.bind(_server));
 			_server.errorHandler();
 
-			_mochaHttp.openPort(function(err, p) {
-
-				_server.start(p, function() {
-					_mochaHttp.http({
-						path: 'login',
-						method: 'post',
-						json: true,
-						body: {
-							username: 'a',
-							password: 'b'
-						},
-						status: 500
-					}, done)
+			request(_server.app)
+				.post('/login')
+				.send({
+					username: 'a',
+					password: 'b'
 				})
-			})
+				.expect(500, done)
 		});
 
 		it('req.login error', function(done) {
-			var _mochaHttp = mochaHttp.MochaHttpUtils();
 
-			_server.authenticationLogin(function(req, u, p, cb) {
-				cb(null, {
-					id: 2
-				});
-			});
-
+			_server.authenticationLogin()
 			_server.addRedisSessions({
 				client: fakeredis.createClient()
 			});
 
+			_server.mysql(mysql)
+
+			// insert fake req.login fn to route
 			_server.app.post(
 				'/login',
 				function(req, res, next) {
@@ -123,25 +103,18 @@
 			);
 			_server.errorHandler();
 
-			_mochaHttp.openPort(function(err, p) {
-
-				_server.start(p, function() {
-					_mochaHttp.http({
-						path: 'login',
-						method: 'post',
-						json: true,
-						body: {
-							username: 'a',
-							password: 'b'
-						},
-						status: 500
-					}, done)
+			request(_server.app)
+				.post('/login')
+				.send({
+					username: 'user',
+					password: 'password'
 				})
-			})
+				.expect(500)
+				.expect(/req.login error/, done)
 		});
 
 		it('dontPrintErrors false', function(done) {
-			var _mochaHttp = mochaHttp.MochaHttpUtils();
+
 			_server.set('dontPrintErrors', false)
 			_server.app.get(
 				'/',
@@ -153,22 +126,23 @@
 
 			spyError.reset();
 
-			_mochaHttp.openPort(function(err, p) {
-
-				_server.start(p, function() {
-					_mochaHttp.http({
-						path: '',
-						status: 500
-					}, function(err, res, body){
-						assert.equal(2, spyError.callCount);
-						done();
-					});
+			request(_server.app)
+				.get('/')
+				.send({
+					username: 'a',
+					password: 'b'
 				})
-			})
+				.expect(500)
+				.end(function(err, res) {
+					if(err){
+						return done(err);
+					}					
+					assert.equal(3, spyError.callCount);
+					done();
+				});
 		});
 
 		it('dontPrintErrors true', function(done) {
-			var _mochaHttp = mochaHttp.MochaHttpUtils();
 			_server.set('dontPrintErrors', true)
 			_server.app.get(
 				'/',
@@ -180,56 +154,58 @@
 
 			spyError.reset();
 
-			_mochaHttp.openPort(function(err, p) {
-
-				_server.start(p, function() {
-					_mochaHttp.http({
-						path: '',
-						status: 500
-					}, function(err, res, body){
-						assert.equal(0, spyError.callCount);
-						done();
-					});
+			request(_server.app)
+				.get('/')
+				.send({
+					username: 'a',
+					password: 'b'
 				})
-			})
-		});		
+				.expect(500)
+				.end(function(err, res) {
+					if(err){
+						return done(err);
+					}					
+					assert.equal(0, spyError.callCount);
+					done();
+				});
+		});
 
-		it('verifyRememberMe, no redis', function(){
-			assert.throws(function(){
+		it('verifyRememberMe, no redis', function() {
+			assert.throws(function() {
 				_server.verifyRememberMe('a')
 			}, 'requires redis')
 		})
 
-		it('issueRememberMe, no redis', function(){
-			assert.throws(function(){
+		it('issueRememberMe, no redis', function() {
+			assert.throws(function() {
 				_server.issueRememberMe('a')
 			}, 'requires redis')
 		})
 
-		it('apiAuth, no mysql', function(){
-			assert.throws(function(){
+		it('apiAuth, no mysql', function() {
+			assert.throws(function() {
 				_server.apiAuth('a')
 			}, 'mysql client required')
 		})
 
-		it('verifyPassword err',function(done){
-			server.verifyPassword(1, 2 ,null, function(err){
+		it('verifyPassword err', function(done) {
+			server.verifyPassword(1, 2, null, function(err) {
 				assert(err)
 				done();
 			})
 		})
 
-		it('deserializeUser err',function(done){
-			server.deserializeUser(-1, function(err){
+		it('deserializeUser err', function(done) {
+			server.deserializeUser(-1, function(err) {
 				assert(err)
 				done();
 			})
 		})
 	});
 
-	describe('web, no redis or mysql',function(){
+	describe('web, no redis or mysql', function() {
 		var _server = server.ExpressMiddlewareBundle();
-		var _mochaHttp = mochaHttp.MochaHttpUtils();
+		// var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 		_server.web();
 
@@ -237,7 +213,6 @@
 
 	describe('messages/shutdown', function() {
 		var _server;
-		var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 		after(function() {
 			process.on('uncaughtException', originalException)
@@ -246,25 +221,31 @@
 		before(function() {
 			originalException = process.listeners('uncaughtException').pop();
 			process.removeListener('uncaughtException', originalException);
+
+			_server = server.ExpressMiddlewareBundle()
+			_server.app.get('/slow', function(req, res) {
+				setTimeout(function() {
+					return res.end()
+				}, 1000);
+			});
 		})
 
-		it('online', function(done) {
+		it('start cb', function(done) {
+			
+			var _server2 = server.ExpressMiddlewareBundle()
+			_server2.start(0, function(){
+				assert(true)
+				done()
+			})
+		});
 
+		it('online', function(done) {
 			process.send = function(msg) {
 				assert(msg, 'online')
 				delete process.send;
 				done();
 			}
-
-			_mochaHttp.openPort(function(err, port) {
-				_server = server.ExpressMiddlewareBundle()
-				_server.app.get('/slow', function(req, res) {
-					setTimeout(function() {
-						return res.end()
-					}, 1000);
-				});
-				_server.start(port)
-			});
+			_server.start(0)
 		});
 
 		it('offline', function(done) {
@@ -273,13 +254,13 @@
 				delete process.send;
 			}
 
-			_mochaHttp.http({
-				path: 'slow'
-			}, done)
+			request(_server.server)
+				.get('/slow')
+				.expect(200, done);
 
 			setTimeout(function() {
 				_server.shutdown();
-			}, 10)
+			}, 100)
 
 		});
 
@@ -291,25 +272,18 @@
 			}
 			process.once("uncaughtException", uncaughtListener);
 
-			_mochaHttp.http({
-				path: 'slow'
-			}, done)
-		});
+			request(_server.server)
+				.get('/slow')
+				.expect(200, done);
 
+		});
 	});
 
 	describe('gzip', function() {
-		var _server = server.ExpressMiddlewareBundle();
-		var _mochaHttp = mochaHttp.MochaHttpUtils();
+		var _server;
 
-		// beforeEach(function(){
-		// 	delete require.cache[require.resolve('compression')];			
-		// })
-
-		it('compressed', function(done) {
-			var _server = server.ExpressMiddlewareBundle();
-			var _mochaHttp = mochaHttp.MochaHttpUtils();
-
+		before(function(){
+			_server = server.ExpressMiddlewareBundle();
 			_server.addGzip({
 				threshold: 1,
 			});
@@ -318,106 +292,75 @@
 				res.json({
 					abc: 123
 				})
-			})
+			})			
+		});
 
-			_mochaHttp.openPort(function(err, port) {
-				_server.start(port, function() {
-					_mochaHttp.http({
-						path: '',
-						headers: {
-							'Accept-Encoding': 'gzip'
-						},
-						resHeaders: {
-							'content-encoding': 'gzip'
-						},
-					}, done)
-				})
-			});
+		it('compressed', function(done) {
+			request(_server.app)
+				.get('/')
+				.set('Accept-Encoding', 'gzip')
+				.expect(200)
+				.expect('content-encoding', 'gzip', done)
 		});
 
 		it('not compressesed, req headers', function(done) {
-			var _server = server.ExpressMiddlewareBundle();
-			var _mochaHttp = mochaHttp.MochaHttpUtils();
-
-			_server.addGzip({
-				threshold: 1,
-			});
-			_server.app.get('/', function(req, res, next) {
-				res.json({
-					abc: 123
+			request(_server.app)
+				.get('/')
+				.set('Accept-Encoding', '')
+				.expect(200)
+				.expect(function(res) {
+					if(res.headers['content-encoding']){
+						return 'got content-encoding'
+					}
+					
 				})
-			})
-
-			_mochaHttp.openPort(function(err, port) {
-				_server.start(port, function() {
-					_mochaHttp.http({
-						path: '',
-						resHeaders: {
-							'content-encoding': null
-						},
-					}, done)
-				})
-			});
+				.end(done);
 		});
 
 		it('not compressesed, threshold', function(done) {
 			var _server = server.ExpressMiddlewareBundle();
-			var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 			_server.addGzip();
 
 			_server.app.get('/', function(req, res, next) {
 				res.json({
 					abc: 123
-				})
-			})
-
-			_mochaHttp.openPort(function(err, port) {
-				_server.start(port, function() {
-					_mochaHttp.http({
-						path: '',
-						headers: {
-							'Accept-Encoding': 'gzip,deflate'
-						},
-						resHeaders: {
-							'content-encoding': null
-						},
-					}, done)
-				})
+				});
 			});
+
+			request(_server.app)
+				.get('/')
+				.set('Accept-Encoding', 'gzip,deflate')
+				.expect(200)
+				.expect(function(res) {
+					if(res.headers['content-encoding']){
+						return 'got content-encoding'
+					}
+				})
+				.end(done);
 		});
 	});
 
 	describe('query and body parser', function() {
 
 		it('query', function(done) {
-			mochaHttp.http({
-				path: 'params',
-				params: {
+			request(server.app)
+				.get('/params')
+				.query({
 					param: 'hey',
 					param2: 'hey2'
-				},
-				resJson: {
-					'[0].param': 'hey',
-					'[0].param2': 'hey2'
-				}
-			}, done)
+				})
+				.expect('[{"param":"hey","param2":"hey2"},{}]', done)
 		});
 
 		it('body', function(done) {
-			mochaHttp.http({
-				path: 'params',
-				method: 'post',
-				body: {
+			request(server.app)
+				.post('/params')
+				.send({
 					param: 'hey',
 					param2: 'hey2'
-				},
-				json: true,
-				resJson: {
-					'[1].param': 'hey',
-					'[1].param2': 'hey2'
-				}
-			}, done)
+				})
+				.expect('[{},{"param":"hey","param2":"hey2"}]', done)
 		});
 	});
 
@@ -432,746 +375,752 @@
 			})
 		});
 
-
-
 		it('start session', function(done) {
-			mochaHttp.http({
-				path: 'set-session',
-				params: {
+			request(server.app)
+				.get('/set-session')
+				.query({
 					key: 'started',
 					value: 'yes'
-				}
-			}, function(err, res, body) {
-				assert(res.headers['set-cookie'][0]);
-				sessionCookie = res.headers['set-cookie'][0];
-				done();
-			})
+				})
+				.expect('set-cookie', /sessionId/, done)
 		});
 
 		it('check cookie domain', function(done) {
-			mochaHttp.http({
-				path: 'set-session',
-				params: {
+			request(server.app)
+				.get('/set-session')
+				.query({
 					key: 'started',
 					value: 'yes'
-				}
-			}, function(err, res, body) {
-				assert(res.headers['set-cookie'][0]);
-				sessionCookie = res.headers['set-cookie'][0];
-				assert(sessionCookie.indexOf('Domain=' + cookieDomain + ';') > -1)
-				done();
-			})
+				})
+				.expect('set-cookie', /sessionId/)
+				.end(function(err, res) {
+					if(err){
+						return done(err);
+					}					
+					sessionCookie = res.headers['set-cookie'][0];
+					assert(sessionCookie.indexOf('Domain=' + cookieDomain + ';') > -1)
+					done();
+				})
 		});
 
 		it('check', function(done) {
-			mochaHttp.http({
-				path: 'check-session',
-				headers: {
-					'cookie': sessionCookie
-				},
-				params: {
+			request(server.app)
+				.get('/check-session')
+				.set('cookie', sessionCookie)
+				.query({
 					key: 'started'
-				},
-				resJson: {
-					value: 'yes'
-				}
-			}, done)
-		});
-
-		it('cross process', function(done) {
-			var _mochaHttp = mochaHttp.MochaHttpUtils();
-
-			_mochaHttp.openPort(function(err, port) {
-				var _server = server.ExpressMiddlewareBundle();
-				_server.addRedisSessions({
-					client: fakeredis.createClient()
-				});
-
-				_server.app.get('/check-session', function(req, res) {
-					return res.json({
-						value: req.session ? req.session[req.query.key] : false
-					});
-				});
-
-				_server.start(port, function() {
-					mochaHttp.http({
-						path: 'check-session',
-						headers: {
-							'cookie': sessionCookie
-						},
-						params: {
-							key: 'started'
-						},
-						resJson: {
-							value: 'yes'
-						}
-					}, done)
 				})
-			});
+				.expect('{"value":"yes"}', done)
 		});
 
-		it('cookie domain', function(done) {
-			var _mochaHttp = mochaHttp.MochaHttpUtils();
+		it('different app using same store', function(done) {
 
-			_mochaHttp.openPort(function(err, port) {
-				var _server = server.ExpressMiddlewareBundle();
-				_server.addRedisSessions({
-					client: fakeredis.createClient()
+			var _server = server.ExpressMiddlewareBundle();
+			_server.addRedisSessions({
+				client: fakeredis.createClient('test')
+			});
+
+			_server.app.get('/check-session', function(req, res) {
+				return res.json({
+					value: req.session ? req.session[req.query.key] : false
 				});
+			});
 
-				_server.app.get('/check-session', function(req, res) {
-					return res.json({
-						value: req.session ? req.session[req.query.key] : false
-					});
-				});
-
-				_server.start(port, function() {
-					mochaHttp.http({
-						path: 'check-session',
-						headers: {
-							'cookie': sessionCookie
-						},
-						params: {
-							key: 'started'
-						},
-						resJson: {
-							value: 'yes'
-						}
-					}, done)
+			request(_server.app)
+				.get('/check-session')
+				.set('cookie', sessionCookie)
+				.query({
+					key: 'started'
 				})
-			});
+				.expect('{"value":"yes"}', done)
 		});
-
-
 	});
 
 	describe('authentication', function() {
 		it('not yet', function(done) {
-			mochaHttp.http({
-				path: 'authenticated',
-				status: 401
-			}, done)
-
+			request(server.app)
+				.get('/authenticated')
+				.expect(401, done)
 		});
 
 		it('missing username', function(done) {
-			mochaHttp.http({
-				path: 'login',
-				method: 'post',
-				json: true,
-				body: {
+			request(server.app)
+				.post('/login')
+				.send({
 					username: '',
 					password: 'password'
-				},
-				resJson: {
-					success: false,
-					error: 'Missing credentials'
-				},
-				status: 401
-			}, done)
+				})
+				.expect(401)
+				.expect(/"success":false/)
+				.expect(/Missing credentials/, done)
 		});
 
 		it('missing password', function(done) {
-			mochaHttp.http({
-				path: 'login',
-				method: 'post',
-				json: true,
-				body: {
+			request(server.app)
+				.post('/login')
+				.send({
 					username: 'user',
 					password: ''
-				},
-				resJson: {
-					success: false,
-					error: 'Missing credentials'
-				},
-				status: 401
-			}, done)
+				})
+				.expect(401)
+				.expect(/"success":false/)
+				.expect(/Missing credentials/, done)
 		});
 
 		it('failed login', function(done) {
-			mochaHttp.http({
-				path: 'login',
-				method: 'post',
-				json: true,
-				body: {
+			request(server.app)
+				.post('/login')
+				.send({
 					username: 'user1',
 					password: 'password'
-				},
-				resJson: {
-					success: false
-				},
-				status: 401
-			}, done)
+				})
+				.expect(401)
+				.expect(/"success":false/)
+				.expect(/Unknown user/, done)
 		});
 
 		it('apikey, mysql err', function(done) {
-			mochaHttp.http({
-				path: 'authenticated',
-				params: {
+			request(server.app)
+				.post('/authenticated')
+				.query({
 					apikey: 'mysqlerr'
-				},
-				status: 401
-			}, done)
+				})
+				.expect(401, done)
 		});
 
 		it('apikey, inactive', function(done) {
-			mochaHttp.http({
-				path: 'authenticated',
-				params: {
+			request(server.app)
+				.get('/authenticated')
+				.query({
 					apikey: 'inactive'
-				},
-				status: 401
-			}, function(err, res, body){
-				assert(body.indexOf('inactive'));
-				done()
-			})
+				})
+				.expect(401)
+				.expect(/not active/, done)
 		});
 
 		it('bad apikey', function(done) {
-			mochaHttp.http({
-				path: 'authenticated',
-				params: {
-					apikey: 1234
-				},
-				status: 401
-			}, done)
+			request(server.app)
+				.get('/authenticated')
+				.query({
+					apikey: '1234'
+				})
+				.expect(401, done)
 		});
 
 		it('apikey, no session', function(done) {
-			mochaHttp.http({
-				path: 'authenticated',
-				params: {
-					apikey: 123
-				},
-				resJson: {
-					// success: true,
-					user: 'user'
-				}
-			}, function(err, res, body) {
-				mochaHttp.http({
-					path: 'authenticated',
-					headers: {
-						'cookie': res.headers['set-cookie'][0]
-					},
-					status: 401
-				}, done);
-			})
+
+			request(server.app)
+				.get('/authenticated')
+				.query({
+					apikey: '123'
+				})
+				.expect(200)
+				.end(function(err, res) {
+					if(err){
+						return done(err);
+					}
+					request(server.app)
+						.post('/authenticated')
+						.set('cookie', res.headers['set-cookie'][0])
+						.expect(401, done)
+				});
 		});
 
+		it('apikey, deserialize fail', function(done) {
+			server.deserializeUser = function(uid, cb){
+				cb(new Error('deserializeError'))
+			}
+			request(server.app)
+				.get('/authenticated')
+				.query({
+					apikey: '123'
+				})
+				.expect(500)
+				.expect(/deserializeError/, done)
+		});
+
+
+
+
 		it('loginFn mysql error', function(done) {
-			mochaHttp.http({
-				path: 'login',
-				method: 'post',
-				json: true,
-				body: {
+			request(server.app)
+				.post('/login')
+				.send({
 					username: 'error',
 					password: 'password'
-				},
-				status: 500
-			}, done)
+				})
+				.expect(500, done)
 		});
 
 		it('login inactive user', function(done) {
-			mochaHttp.http({
-				path: 'login',
-				method: 'post',
-				json: true,
-				body: {
+			request(server.app)
+				.post('/login')
+				.send({
 					username: 'inactive',
 					password: 'password'
-				},
-				status: 401
-			}, done)
+				})
+				.expect(401)
+				.expect(/"success":false/)
+				.expect(/not active/, done)
 		});
 
-
 		it('salted password fail', function(done) {
-			mochaHttp.http({
-				path: 'login',
-				method: 'post',
-				json: true,
-				body: {
+			request(server.app)
+				.post('/login')
+				.send({
 					username: 'salted',
 					password: 'salted'
-				},
-				status: 401
-			}, done)
+				})
+				.expect(401)
+				.expect(/"success":false/)
+				.expect(/password/, done)
 		});
 
 		it('salted password success', function(done) {
-			mochaHttp.http({
-				path: 'login',
-				method: 'post',
-				json: true,
-				body: {
+			request(server.app)
+				.post('/login')
+				.send({
 					username: 'salted2',
 					password: 'salted'
-				},
-				// status: 401
-			}, done)
-		});		
-
+				})
+				.expect(200, done)
+		});
 
 		it('login success', function(done) {
-			mochaHttp.http({
-				path: 'login',
-				method: 'post',
-				json: true,
-				body: {
+			request(server.app)
+				.post('/login')
+				.send({
 					username: 'user',
 					password: 'password'
-				},
-				resJson: {
-					success: true,
-				},
-			}, function(err, res, body) {
-				assert(res.headers['set-cookie'][0]);
-				sessionCookie = res.headers['set-cookie'][0]
+				})
+				.expect(200)
+				.end(function(err, res) {
+					if(err){ return done(err); }
 
-				mochaHttp.http({
-					path: 'authenticated',
-					headers: {
-						'cookie': sessionCookie
-					},
-					resJson: {
-						// success: true,
-						user: 'user'
-					},
-				}, done);
-
-			})
+					sessionCookie = res.headers['set-cookie'][0]
+					request(server.app)
+						.get('/authenticated')
+						.set('cookie', sessionCookie)
+						.expect(200)
+						.expect(/"user":"user"/, done)
+				});
 		});
 
 		it('cross process, different session secret', function(done) {
-			var _mochaHttp = mochaHttp.MochaHttpUtils();
-
-			_mochaHttp.openPort(function(err, port) {
-				var _server = server.ExpressMiddlewareBundle();
-				_server.addRedisSessions({
-					client: fakeredis.createClient()
-				}, {
-					secret: 'different secret'
-				});
-
-				// every route after this requires authentication
-				_server.app.use(server.authenticated.bind(server));
-
-				_server.app.get('/', function(req, res) {
-					return res.json({
-						value: req.session ? req.session[req.query.key] : false
-					});
-				});
-
-				_server.start(port, function() {
-					_mochaHttp.http({
-						path: '',
-						headers: {
-							'cookie': sessionCookie
-						},
-						status: 401
-					}, done)
-				})
+			var _server = server.ExpressMiddlewareBundle();
+			_server.addRedisSessions({
+				client: fakeredis.createClient('test')
+			}, {
+				secret: 'different secret'
 			});
+
+			// every route after this requires authentication
+			_server.app.use(server.authenticated.bind(server));
+
+			_server.app.get('/', function(req, res) {
+				return res.json({
+					value: req.session ? req.session[req.query.key] : false
+				});
+			});
+
+			request(_server.app)
+				.get('/')
+				.set('cookie', sessionCookie)
+				.expect(401, done)
 		});
 
 	});
 
-	describe('checkRoles', function(){
-		it('pass', function(done){
-			mochaHttp.http({
-				headers: {
-					'cookie': sessionCookie
-				},
-				path: 'roleA'
-			}, done);			
+	describe('checkRoles', function() {
+		it('pass', function(done) {
+			request(server.app)
+				.get('/roleA')
+				.set('cookie', sessionCookie)
+				.expect(200, done)
 		});
 
-		it('pass2', function(done){
-			mochaHttp.http({
-				headers: {
-					'cookie': sessionCookie
-				},
-				path: 'roleBorC'
-			}, done);			
+		it('pass2', function(done) {
+			request(server.app)
+				.get('/roleBorC')
+				.set('cookie', sessionCookie)
+				.expect(200, done)
 		});
 
-		it('fail', function(done){
-			mochaHttp.http({
-				headers: {
-					'cookie': sessionCookie
-				},
-				path: 'roleC',
-				status: 403
-			}, done);			
-		})		
-
+		it('fail', function(done) {
+			request(server.app)
+				.get('/roleC')
+				.set('cookie', sessionCookie)
+				.expect(403, done)
+		})
 
 	})
 
 	describe('logout', function() {
 
 		var headers;
-		
-		it('get redirected to /', function(done){
-			mochaHttp.http({
-				headers: {
-					'cookie': sessionCookie
-				},
-				path: 'logout',
-				followRedirect: false,
-				status: 302
-			}, function(err, res, body){
-				headers = res.headers;
-				done();
-			});
+
+		it('get redirected to /', function(done) {
+			request(server.app)
+				.get('/logout')
+				.set('cookie', sessionCookie)
+				.expect(302)
+				.end(function(err, res) {
+					if(err){
+						return done(err);
+					}
+					headers = res.headers;
+					done();
+				});
 		});
 
-		it('got empty session cookie', function(){
+		it('got empty session cookie', function() {
 			assert(headers['set-cookie'][0].indexOf(server.sessionCookieLabel + '=;') > -1)
 		});
 
 		it('no longer authenticated', function(done) {
-			mochaHttp.http({
-				path: 'authenticated',
-				headers: {
-					'cookie': sessionCookie
-				},
-				status: 401
-			}, done)
+			request(server.app)
+				.get('/authenticated')
+				.set('cookie', sessionCookie)
+				.expect(401, done)
 		})
 	});
 
 	describe('remember me', function() {
 
-		var _mochaHttp = mochaHttp.MochaHttpUtils();
 		var _server = server.ExpressMiddlewareBundle();
 
-		before(function(done) {
-			_mochaHttp.openPort(function(err, port) {
+		before(function() {
 
-				_server
-					.redis(fakeredis.createClient())
-					.mysql(mysql)
-					.web();
+			_server
+				.redis(fakeredis.createClient('test'))
+				.mysql(mysql)
+				.web();
 
-				_server.deserializeUser = function(string, cb) {
-					var user;
-					if (string == 1) {
-						user = {
-							username: 'user',
-							id: 1
-						};
-					}
-					return cb(null, user)
+			_server.deserializeUser = function(string, cb) {
+				var user;
+				if (string == 1) {
+					user = {
+						username: 'user',
+						id: 1
+					};
 				}
+				return cb(null, user)
+			}
 
-				_server.app.post('/login', _server.login.bind(_server));
-				_server.app.get('/logout', _server.logout.bind(_server));
+			_server.app.post('/login', _server.login.bind(_server));
+			_server.app.get('/logout', _server.logout.bind(_server));
 
-				// every route after this requires authentication
-				_server.app.use(server.authenticated.bind(server));
+			// every route after this requires authentication
+			_server.app.use(server.authenticated.bind(server));
 
-				_server.app.get('/set', function(req, res) {
-					req.session[req.query.key] = req.query.value;
-					res.end();
-				});
-				_server.app.get('/', function(req, res) {
-					return res.json({
-						value: req.session ? req.session[req.query.key] : false
-					});
-				});
-
-				_server.start(port, done);
+			_server.app.get('/set', function(req, res) {
+				req.session[req.query.key] = req.query.value;
+				res.end();
 			});
+			_server.app.get('/', function(req, res) {
+				return res.json({
+					value: req.session ? req.session[req.query.key] : false
+				});
+			});
+
+			_server.errorHandler();
+
 		})
 
 		it('login', function(done) {
-			_mochaHttp.http({
-				path: 'login',
-				method: 'post',
-				json: true,
-				body: {
+			request(_server.app)
+				.post('/login')
+				.send({
 					username: 'user',
 					password: 'password',
 					remember_me: true
-				}
-			}, function(err, res, body) {
-				assert(res.headers['set-cookie'][0]);
-				assert(res.headers['set-cookie'][1]);
+				})
+				.expect(200)
+				.end(function(err, res) {
+					if(err){
+						return done(err);
+					}					
+					assert(res.headers['set-cookie'][0]);
+					assert(res.headers['set-cookie'][1]);
 
-				rememberCookie = res.headers['set-cookie'][0];
-				sessionCookie = res.headers['set-cookie'][1];
-				done()
-
-			})
+					rememberCookie = res.headers['set-cookie'][0];
+					sessionCookie = res.headers['set-cookie'][1];
+					done()
+				})
 		});
 
 		it('remember_me cookie only', function(done) {
-			_mochaHttp.http({
-				path: '',
-				headers: {
-					'cookie': rememberCookie
-				}
-			}, function(err, res, body) {
-				assert.notEqual(res.headers['set-cookie'][0], rememberCookie);
-				assert.notEqual(res.headers['set-cookie'][1], sessionCookie);
-				rememberCookie = res.headers['set-cookie'][0];
-				sessionCookie = res.headers['set-cookie'][1];
+			request(_server.app)
+				.get('/')
+				.set('cookie', rememberCookie)
+				.expect(200)
+				.end(function(err, res) {
+					if(err){
+						return done(err);
+					}					
+					assert.notEqual(res.headers['set-cookie'][0], rememberCookie);
+					assert.notEqual(res.headers['set-cookie'][1], sessionCookie);
+					rememberCookie = res.headers['set-cookie'][0];
+					sessionCookie = res.headers['set-cookie'][1];
 
-				done();
-
-			});
+					done();
+				})
 		});
 
 		it('remember_me and session cookies, previous session maintained', function(done) {
-			_mochaHttp.http({
-				path: 'set',
-				params: {
+
+			request(_server.app)
+				.get('/set')
+				.set('cookie', [sessionCookie, rememberCookie])
+				.query({
 					key: 'hey',
 					value: 'there'
-				},
-				headers: {
-					'cookie': [sessionCookie, rememberCookie]
-				}
-			}, function(err, res, body) {
+				})
+				.expect(200)
+				.end(function(err, res) {
+					if(err){
+						return done(err);
+					}					
+					// assert.notEqual(res.headers['set-cookie'][0], rememberCookie);
+					// assert.notEqual(res.headers['set-cookie'][1], sessionCookie);
+					// rememberCookie = res.headers['set-cookie'][0];
+					// sessionCookie = res.headers['set-cookie'][1];
+					request(_server.app)
+						.get('/')
+						.set('cookie', [sessionCookie, rememberCookie])
+						.query({
+							key: 'hey'
+						})
+						.expect(/"value":"there"/, done)
 
-				_mochaHttp.http({
-					path: '',
-					params: {
-						key: 'hey'
-					},
-					resJson: {
-						value: 'there'
-					},
-					headers: {
-						'cookie': [sessionCookie, rememberCookie]
-					}
-				}, done);
-
-			});
+				})
 		});
 
 		it('logout', function(done) {
-
-			_mochaHttp.http({
-				headers: {
-					'cookie': [sessionCookie, rememberCookie]
-				},
-				path: 'logout',
-				followRedirect: false,
-				status: 302
-			}, done);
-		});
-
-		it('old session cookie not good anymore', function(done) {
-			_mochaHttp.http({
-				path: '',
-				headers: {
-					// 'cookie': rememberCookie
-					'cookie': [sessionCookie, rememberCookie]
-				},
-				status: 401
-			}, done);
-		});
-
-		it('log back in with remember_me', function(done) {
-			_mochaHttp.http({
-				path: '',
-				headers: {
-					'cookie': rememberCookie
-				}
-			}, function(err, res, body) {
-				assert.notEqual(res.headers['set-cookie'][0], rememberCookie);
-				assert.notEqual(res.headers['set-cookie'][1], sessionCookie);
-				rememberCookie = res.headers['set-cookie'][0];
-				sessionCookie = res.headers['set-cookie'][1];
-
-				done();
-
-			});
-		});
-
-		it('previous session is gone', function(done) {
-
-			_mochaHttp.http({
-				path: '',
-				params: {
-					key: 'hey'
-				},
-				resJson: {
-					value: null
-				},
-				headers: {
-					'cookie': [sessionCookie, rememberCookie]
-				}
-			}, done);
+			request(_server.app)
+				.get('/logout')
+				.set('cookie', [sessionCookie, rememberCookie])
+				.expect(302)
+				.expect('set-cookie', /sessionId=;/)
+				.expect('set-cookie', /rememberMe=;/, done)
 
 		});
+
+		it('old cookies not good anymore', function(done) {
+			request(_server.app)
+				.get('/')
+				.set('cookie', [sessionCookie, rememberCookie])
+				.expect(401, done)
+		});
+
+		it('issueRememberMe error', function(done) {
+
+			_server.issueRememberMe = function(u, _done){	
+				_done('issueRemeberMe error')
+			};
+			_server.app.set('dontPrintErrors', true)
+
+			request(_server.app)
+				.post('/login')
+				.send({
+					username: 'user',
+					password: 'password',
+					remember_me: true
+				})
+				.expect(500, done)
+		});
+
 
 	})
 
-	describe('jade', function(){
+	describe('jade', function() {
 		var _server = server.ExpressMiddlewareBundle();
-		var _mochaHttp = mochaHttp.MochaHttpUtils();
 
-
-		beforeEach(function(){
+		beforeEach(function() {
 			_server = server.ExpressMiddlewareBundle();
-			_mochaHttp = mochaHttp.MochaHttpUtils();
 		});
 
-		it('error, no dir',function(){
+		it('error, no dir', function() {
 			assert.throws(function() {
 				_server.addJade();
 			}, /dir required/);
 		});
 
-		it('error, bad dir',function(){
+		it('error, bad dir', function() {
 			assert.throws(function() {
 				_server.addJade('./test/jade2');
 			}, /no such file or dir/);
 		});
 
-		it('error, file instead of dir',function(){
+		it('error, file instead of dir', function() {
 			assert.throws(function() {
 				_server.addJade('./test/jade/template.jade');
 			}, /is not a dir/);
 		});
 
-		it('render template', function(done){
+		it('render template', function(done) {
 
 			_server.addJade('./test/jade');
-			_server.get('/',function(req,res){
-				res.render('template');		
+			_server.get('/', function(req, res) {
+				res.render('template');
 			});
 
-			_mochaHttp.openPort(function(err, port) {
-				_server.start(port, function() {
-					_mochaHttp.http({
-						path: '',
-					}, done)
-				})
-			});		
+			request(_server.app)
+				.get('/')
+				.expect(200, done);
 		})
 
 	});
 
 	describe('static', function() {
 		var _server = server.ExpressMiddlewareBundle();
-		var _mochaHttp = mochaHttp.MochaHttpUtils();
+		// var _mochaHttp = mochaHttp.MochaHttpUtils();
 
-
-		beforeEach(function(){
+		beforeEach(function() {
 			_server = server.ExpressMiddlewareBundle();
-			_mochaHttp = mochaHttp.MochaHttpUtils();
+			// _mochaHttp = mochaHttp.MochaHttpUtils();
 		});
 
-
-		it('error, no dir',function(){
+		it('error, no dir', function() {
 			assert.throws(function() {
 				_server.addStaticDir();
 			}, /dir required/);
 		});
 
-		it('error, bad dir',function(){
+		it('error, bad dir', function() {
 			assert.throws(function() {
 				_server.addStaticDir('./test/static3');
 			}, /no such file or dir/);
 		});
 
-		it('error, file instead of dir',function(){
+		it('error, file instead of dir', function() {
 			assert.throws(function() {
 				_server.addStaticDir('./test/static1/test.txt');
 			}, /is not a dir/);
 		});
 
-		it('single path, default route',function(done){
+		it('single path, default route', function(done) {
 
 			_server.addStaticDir('./test/static1');
 
-			_mochaHttp.openPort(function(err, port) {
-				_server.start(port, function() {
-					_mochaHttp.http({
-						path: 'test.txt',
-						resJson: {
-							hey: 'there'
-						}
-					}, done)
-				})
-			});			
+			request(_server.app)
+				.get('/test.txt')
+				.expect('{"hey": "there"}', done)
 		});
 
-		it('bad route in declaration, 404',function(done){
+		it('bad route in declaration, 404', function(done) {
 
 			_server.addStaticDir('./test/static1', 'mounted');
-
-			_mochaHttp.openPort(function(err, port) {
-				_server.start(port, function() {
-
-					_mochaHttp.http({
-						path: 'mounted/test.txt',
-						status: 404
-					}, done)						
-				})
-			});			
+			request(_server.app)
+				.get('/mounted/test.txt')
+				.expect(404, done)
 		});
 
-		it('single path, custom route',function(done){
+		it('single path, custom route', function(done) {
 
 			_server.addStaticDir('./test/static1', '/mounted');
-
-			_mochaHttp.openPort(function(err, port) {
-				_server.start(port, function() {
-
-					_mochaHttp.http({
-						path: 'test.txt',
-						status: 404
-					}, function(){
-						_mochaHttp.http({
-							path: 'mounted/test.txt'
-						}, done)						
-					})
-
-
-
-				})
-			});			
+			request(_server.app)
+				.get('/mounted/test.txt')
+				.expect(200)
+				.end(function(err, res) {
+					if(err){
+						return done(err);
+					}					
+					request(_server.app)
+						.get('/test.txt')
+						.expect(404, done)
+				});
 		});
 
-		it('combo',function(done){
+		it('combo', function(done) {
 
 			_server.addStaticDir('./test/static1', '/mounted');
 			_server.addStaticDir('./test/static2');
 			_server.addStaticDir('./test/jade', '/mounted');
 
-			_mochaHttp.openPort(function(err, port) {
-				_server.start(port, function() {
+			request(_server.app)
+				.get('/mounted/test.txt')
+				.expect(200)
+				.end(function(err, res) {
+					if(err){
+						return done(err);
+					}					
+					request(_server.app)
+						.get('/test2.txt')
+						.expect(200)
+						.end(function(err, res) {
+							if(err){
+								return done(err);
+							}							
+							request(_server.app)
+								.get('/mounted/template.jade')
+								.expect(200)
+								.expect(/Jade is a terse/, done)
+						})
+				});
+		});
 
-					_mochaHttp.http({
-							path: 'mounted/test.txt'
-					}, function(){
-						_mochaHttp.http({
-							path: 'test2.txt'
-						}, function(){
-							_mochaHttp.http({
-								path: 'mounted/template.jade'
-							}, function(err, res, body){
-								assert(body.indexOf('Jade is a terse') > -1);
-								done();
-							});
-						})						
-					})
+	});
 
+	describe('logger', function(){
 
+		var _server = server.ExpressMiddlewareBundle();
+		var spyStdout = sinon.spy(process.stdout, 'write');
 
+		before(function(){
+
+			_server.addQueryAndBodyParser();
+			_server.addLogger();
+
+			_server.get('/500', function(req, res){
+				res.status(500)
+				res.end()
+			})
+
+			_server.get('/301', function(req, res){
+				res.status(301)
+				res.end()
+			})
+
+			_server.get('/log', function(req, res){
+				res.end()
+			})
+			_server.post('/log', function(req, res){
+				res.end()
+			})			
+		})
+		
+		it('get', function(done){
+			spyStdout.reset();
+			request(_server.app)
+				.get('/log')
+				.expect(200)
+				.end(function(err){
+					if(err){
+						return done(err);
+					}
+					assert.equal(1,spyStdout.callCount)
+					done();
 				})
-			});			
+		})
+		it('get, noLog', function(done){
+			spyStdout.reset();
+			request(_server.app)
+				.get('/log')
+				.query({noLog: 1})
+				.expect(200)
+				.end(function(err){
+					if(err){
+						return done(err);
+					}
+					assert.equal(0,spyStdout.callCount)
+					done();
+				})
+		})
+
+
+		it('post', function(done){
+			spyStdout.reset();
+			request(_server.app)
+				.post('/log')
+				.expect(200)
+				.end(function(err){
+					if(err){
+						return done(err);
+					}
+					assert.equal(1,spyStdout.callCount)
+					done();
+				})
+		});
+
+		it('301', function(done){
+			spyStdout.reset();
+			request(_server.app)
+				.get('/301')
+				.expect(301)
+				.end(function(err){
+					if(err){
+						return done(err);
+					}
+					assert.equal(1,spyStdout.callCount)
+					done();
+				});
+		});
+
+		it('500', function(done){
+			spyStdout.reset();
+			request(_server.app)
+				.get('/500')
+				.expect(500)
+				.end(function(err){
+					if(err){
+						return done(err);
+					}
+					assert.equal(1,spyStdout.callCount)
+					done();
+				});
+		});
+
+		it('404', function(done){
+			spyStdout.reset();
+			request(_server.app)
+				.get('/404')
+				.expect(404)
+				.end(function(err){
+					if(err){
+						return done(err);
+					}
+					assert.equal(1,spyStdout.callCount)
+					done();
+				});
 		});		
 
 
+	})
 
 
-	});
+	describe('get/set', function() {
+		var _server;
+		before(function(){
+			_server = server.ExpressMiddlewareBundle();
+		})
+		
+		it('get redis', function(){
+			var r  = server.redis()
+			assert(r._events)
+		})
+		it('get mysql', function(){
+			var r  = server.mysql()
+			assert(r.query)
+		})		
+
+		it('redis client', function(){
+			_server.redis(fakeredis.createClient('test'))
+			var r  = _server.redis()
+			assert(r._events)			
+		})
+
+		it('mysql client', function(){
+			_server.mysql(mysql)
+			var r  = _server.mysql()
+			assert(r._events)			
+		})		
+
+		it('redis config', function(done){
+			_server.redis({port: 65534, host:'127.0.0.1'})	
+			_server.redis().on('error', function(err){
+				assert(err)
+				done();
+			});
+		})		
+
+		it('mysql config', function(done){
+			_server.mysql({port: 65534, host:'127.0.0.1'})	
+			var r  = _server.mysql()
+			assert(r._events)						
+			done();
+		})				
+	})
 
 	function routes(server) {
 
@@ -1186,8 +1135,8 @@
 		// 	return cb(null, user)
 		// }
 		// 
+
 		
-		server.addLogger();
 
 		server.authenticationLogin(function(req, u, p, cb) {
 			if (u === 'user' && p === 'password') {
@@ -1246,8 +1195,6 @@
 
 		server.get('/authenticated', function(req, res, next) {
 			res.status(401);
-
-
 			var count = 1;
 			if (req.isAuthenticated() || req.user) {
 				res.status(200);
@@ -1269,26 +1216,28 @@
 
 		server.get(
 			'/roleA',
-			server.checkRoles.bind(server,['roleX','roleA']),
-			function(req, res){
+			server.checkRoles.bind(server, ['roleX', 'roleA']),
+			function(req, res) {
 				res.end()
 			}
 		)
 		server.get(
 			'/roleC',
-			server.checkRoles.bind(server,['roleX','roleC']),
-			function(req, res){
+			server.checkRoles.bind(server, ['roleX', 'roleC']),
+			function(req, res) {
 				res.end()
 			}
-		)		
+		)
 
 		server.get(
 			'/roleBorC',
-			server.checkRoles.bind(server,['roleB', 'roleC']),
-			function(req, res){
+			server.checkRoles.bind(server, ['roleB', 'roleC']),
+			function(req, res) {
 				res.end()
 			}
-		)		
+		)	
+
+
 
 	}
 
@@ -1371,7 +1320,6 @@
 					}])
 				}
 
-
 				if (
 					q === 'select id, password, salted, active from users where username = ?' && p && p[0] == 'user'
 				) {
@@ -1407,7 +1355,6 @@
 					}])
 				}
 
-
 				if (
 					q === 'select u.* , GROUP_CONCAT( role ) roles from users u  join user_roles r on(u.id=r.user_id)  where id = ? group by user_id' && p && p[0] == 1
 				) {
@@ -1427,11 +1374,14 @@
 					return cb('error')
 				}
 
+
+
+
 				cb('unknow query')
 			}
-			
+
 		}
-		return _mysql;	
+		return _mysql;
 	}
 
 }).call(this);

@@ -54,7 +54,7 @@
 	// setters/getters
 	//----------------------------------------
 	Scaff.prototype.redis = function(_redis) {
-		if(!_redis){
+		if(typeof _redis === 'undefined'){
 			return this._redis;	
 		}
 
@@ -64,14 +64,15 @@
 		}
 		else{
 			debug('passed redis config');
-			_redis = require('redis').createClient(_redis)
+			_redis = require('redis').createClient(_redis.port, _redis.host, _redis.options)
 		}
+
 		this._redis = _redis;
 		return this;
 	}
 	
 	Scaff.prototype.mysql = function(_mysql) {
-		if(!_mysql){
+		if(typeof _mysql === 'undefined'){
 			return this._mysql;	
 		}
 
@@ -80,7 +81,8 @@
 			debug('passed mysql client')
 		}
 		else{
-			_mysql = require('mysql').createConnection(_mysql)
+			// _mysql = require('mysql').createConnection(_mysql)
+			_mysql = require('mysql').createPool(_mysql)
 		}
 		this._mysql = _mysql;
 		// console.info(_mysql)
@@ -229,6 +231,7 @@
 		var sessionConfig = _sessionConfig || {};
 		var cookieConfig = _cookieConfig || this._cookieConfig || {};
 
+		this.addCookieParser();
 		this.addQueryAndBodyParser();
 
 		if (!redisConfig) {
@@ -268,6 +271,9 @@
 	//----------------------------------------
 	Scaff.prototype.serializeUser = function(user, done) {
 		debug('default serializeUser: ' + JSON.stringify(user));
+		if(!user){
+			return done(new Error('user required in serializeUser'));
+		}
 		done(null, user);
 	}
 
@@ -324,6 +330,8 @@
 		var params = [u];
 
 		this._mysql.query(query, params, function(err, results) {
+			debug('loginFn cb')
+			debug(JSON.stringify(results));
 			if (err) {
 				return done(err);
 			} else if (!results || results.length === 0) {
@@ -375,6 +383,9 @@
 		// }
 
 		function query_callback(err, results) {
+			debug('verifyPassword query cb')
+			debug(err);		
+			debug(JSON.stringify(results));			
 			if (err) {
 				return done(err);
 			}
@@ -443,7 +454,7 @@
 		// save user id as value to remember_me token key
 		debug('issueRememberMe, guid: ' + guid)
 		var response = this._redis.setex(
-			'remember_me-' + guid, (1000 * 60 * 60 * 24 * 45),
+			'remember_me-' + guid, (1000 * 60 * 60 * 24 * 7),
 			parseInt(user, 10),
 			function(err) {
 				done(err, guid)
@@ -525,7 +536,7 @@
 	//----------------------------------------
 	Scaff.prototype.authenticateHandler = function(err, user, info, req, res, next) {
 		var t = this;
-		debug('authenticationHandler')
+		debug('authenticationHandler: ' + user)
 		if (err) {
 			debug('authenticationHandler: authentication error')
 			return next(err);
@@ -677,35 +688,50 @@
 
 	function logTokenParams(req, res) {
 		var params = [];
-		if (decodeURI(req.originalUrl).match(/\?/)) {
-			var tokens = decodeURI(req.originalUrl).replace(/.*\?/, '').split('&');
+		// if (decodeURI(req.originalUrl).match(/\?/)) {
+		// 	var tokens = decodeURI(req.originalUrl).replace(/.*\?/, '').split('&');
 
-			for (var i in tokens) {
-				var t = tokens[i];
-				var _tokens = t.split(/\=/);
-				if (_tokens[0] === 'json') {
-					try {
-						var json = JSON.parse(_tokens[1]);
+		// 	for (var i in tokens) {
+		// 		var t = tokens[i];
+		// 		var _tokens = t.split(/\=/);
+		// 		if (_tokens[0] === 'json') {
+		// 			try {
+		// 				var json = JSON.parse(_tokens[1]);
 
-						var keys = Object.keys(json)
-						for (var i in keys) {
-							params.push("  " + (req.id || '') + "  URL  " + _tokens[0] + ", " + keys[i] + " : " + json[keys[i]]);
-						}
-					} catch (e) {
-						params.push("  " + (req.id || '') + "  URL  " + _tokens[0] + " : " + _tokens[1]);
-					}
-				} else {
-					params.push("  " + (req.id || '') + "  URL  " + _tokens[0] + " : " + _tokens[1]);
+		// 				var keys = Object.keys(json)
+		// 				for (var i in keys) {
+		// 					params.push("  " + (req.id || '') + "  URL  " + _tokens[0] + ", " + keys[i] + " : " + json[keys[i]]);
+		// 				}
+		// 			} catch (e) {
+		// 				params.push("  " + (req.id || '') + "  URL  " + _tokens[0] + " : " + _tokens[1]);
+		// 			}
+		// 		} else {
+		// 			params.push("  " + (req.id || '') + "  URL  " + _tokens[0] + " : " + _tokens[1]);
+		// 		}
+		// 	}
+		// }
+
+		if(req.query){
+			var queryKeys = Object.keys(req.query);
+			for (var k in queryKeys) {
+				var key = queryKeys[k];
+				var v = req.query[key];
+				if(!v){
+					continue;
 				}
-			}
+				var p = "  " + (req.id || '') + "  QUERY " + key + " : " + v;
+				params.push(p);
+			}			
 		}
 
-		var keys = Object.keys(req.body);
-		for (var k in keys) {
-			var key = keys[k];
-			var v = req.body[key];
-			var p = "  " + (req.id || '') + "  BODY " + key + " : " + v;
-			params.push(p);
+		if(req.body){
+			var keys = Object.keys(req.body);
+			for (var k in keys) {
+				var key = keys[k];
+				var v = req.body[key];
+				var p = "  " + (req.id || '') + "  BODY " + key + " : " + v;
+				params.push(p);
+			}
 		}
 
 		for (var j in params) {
@@ -718,7 +744,7 @@
 
 		return "\n" + params.join("\n").bold.gray;
 	}
-	Scaff.prototype.addLogger = function() {
+	Scaff.prototype.addLogger = function(tokens) {
 		// var t = this;
 		// this.app.use(function(req, res, next) {
 		// // 	// console.info(req.headers);
@@ -749,12 +775,12 @@
 		morgan.token('customMethod', function(req, res) {
 			return (req.method + (req.method.length === 3 ? ' ' : '')).gray;
 		});
-		morgan.token('reqString', function() {
-			return 'REQ'.gray
-		});
-		morgan.token('decodedUrl', function(req, res) {
-			return decodeURI(req.url);
-		});
+		// morgan.token('reqString', function() {
+		// 	return 'REQ'.gray
+		// });
+		// morgan.token('decodedUrl', function(req, res) {
+		// 	return decodeURI(req.url);
+		// });
 		morgan.token('time', function(req, res) {
 			// return wrapColor(90, timeNow());
 			return timeNow().gray;
@@ -771,29 +797,29 @@
 		morgan.token('responseTime', function(req, res) {
 			var elapsed = Date.now() - req._startTime;
 			var msg = elapsed + 'ms'
-			if (elapsed > 5 * 1000) {
-				msg += ' SLOW'
-				return msg.red;
-			}
+			// if (elapsed > 5 * 1000) {
+			// 	msg += ' SLOW'
+			// 	return msg.red;
+			// }
 			return msg.cyan;
 
 		});
 
-		morgan.token('cookies', function(req, res) {
-			return req.headers.cookies;
-		});
+		// morgan.token('cookies', function(req, res) {
+		// 	return req.headers.cookies;
+		// });
 
-		morgan.token('splitTime', function(req, res) {
-			var msg = ''
-			msg += (req.sphinxQueryTime ? 'sphinx:' + req.sphinxQueryTime * 1000 + ' ' : '')
-			msg += (req.compileDataTime ? 'data:' + req.compileDataTime + ' ' : '')
-			msg += (req.facetDataTime ? 'facet:' + req.facetDataTime + ' ' : '')
-			return msg.cyan;
-		});
+		// morgan.token('splitTime', function(req, res) {
+		// 	var msg = ''
+		// 	msg += (req.sphinxQueryTime ? 'sphinx:' + req.sphinxQueryTime * 1000 + ' ' : '')
+		// 	msg += (req.compileDataTime ? 'data:' + req.compileDataTime + ' ' : '')
+		// 	msg += (req.facetDataTime ? 'facet:' + req.facetDataTime + ' ' : '')
+		// 	return msg.cyan;
+		// });
 
-		morgan.token('pid', function() {
-			return 'pid: ' + process.pid;
-		});
+		// morgan.token('pid', function() {
+		// 	return 'pid: ' + process.pid;
+		// });
 
 		morgan.token('params', logTokenParams);
 
@@ -813,10 +839,15 @@
 		// 		return true
 		// 	}
 		// }));
-		this.app.use(morgan(':customStatus :customMethod :time :urlWithUser :ua :responseTime :splitTime :params', {
+		this.app.use(morgan(':customStatus :customMethod :time :urlWithUser :ua :responseTime :params', {
+		// this.app.use(morgan(':customStatus :customMethod :time :urlWithUser :ua :responseTime :splitTime :params', {			
 			immediate: false,
 			skip: skipFn
 		}));
+		// this.app.use(morgan(tokens || 'combined', {
+		// 	immediate: true,
+		// 	skip: skipFn
+		// }));
 
 		return this;
 	}
@@ -829,18 +860,22 @@
 		var app = this.app;
 		var t = this;
 
-		if (!port) {
+		if (typeof port == 'undefined') {
 			throw new Error('port required')
 		}
 
-		this.server = app.listen(port, function() {
+
+		app.listen(port, function() {
+			t.server = this;
 			debug(
 				process.title + " listening on port %d (pid: " + process.pid + ")",
-				port
+				this.address().port
 			);
 
-			// for naught
+			
+			/* istanbul ignore next */
 			if (process.send) {
+				// for naught
 				process.send('online');
 			}
 			if (cb && typeof cb === 'function') {
@@ -907,6 +942,7 @@
 
 			if (!t.app.get('dontPrintErrors')) {
 				console.error('errorHandler')
+				console.error(error)
 				console.error(error.stack);
 			}
 
@@ -916,7 +952,7 @@
 			// 		error: 'Something blew up!'
 			// 	});
 			// } else {
-			res.status(500).send();
+			res.status(500).send(error.toString());
 			// }
 		})
 
@@ -946,7 +982,8 @@
 		var t = this;
 
 		this.passport.authenticate('local', function(err, user, info) {
-			debug('local authentication')
+			debug('local authenticate cb: ' + user)
+			debug(JSON.stringify(info))
 			if (!info) {
 				info = {};
 			}
