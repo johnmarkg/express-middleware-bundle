@@ -14,22 +14,18 @@
 	var LocalAPIKeyStrategy = require('passport-localapikey').Strategy;
 	var RememberMeStrategy = require('passport-remember-me').Strategy;
 
-	var morgan = require('morgan');
-	// var uuid = require('node-uuid');
-	var colors = require('colors');
-
-	// var async = require("async");
-	// var bytes = require("bytes");
+	// var colors = require('colors');
 
 	function Scaff() {
+
 		// dont want cached object
-		this.passport = new Passport();
+		this.passport = new Passport();		
 
 		this.app = express();
 		this.app.disable('x-powered-by');
 
+		// bind express functions to this
 		this.set = this.app.set.bind(this.app)
-
 		this.use = this.app.use.bind(this.app)
 		this.get = this.app.get.bind(this.app)
 		this.post = this.app.post.bind(this.app)
@@ -38,6 +34,8 @@
 
 		this.rememberMeCookieLabel = 'rememberMe'
 		this.sessionCookieLabel = 'sessionId'
+		this.morgan = require('morgan');
+
 
 		return this;
 	}
@@ -64,6 +62,7 @@
 		}
 		else{
 			debug('passed redis config');
+			this._redisConfig = _redis;
 			_redis = require('redis').createClient(_redis.port, _redis.host, _redis.options)
 		}
 
@@ -82,12 +81,45 @@
 		}
 		else{
 			// _mysql = require('mysql').createConnection(_mysql)
+			 this._mysqlConfig = _mysql;
 			_mysql = require('mysql').createPool(_mysql)
 		}
 		this._mysql = _mysql;
 		// console.info(_mysql)
 		return this;
 	}
+
+	Scaff.prototype.rabbit = function(wascallyConfig, cb) {
+		if(typeof wascallyConfig === 'undefined'){
+			return this._rabbit;	
+		}
+
+		var config = {};
+		// // janky client object detection
+		// if(_rabbit._events){
+		// 	debug('passed rabbit')
+		// }
+		// else{
+		if(!wascallyConfig.connection){
+			config.connection = wascallyConfig
+		}
+		else{
+			config = wascallyConfig	
+		}
+	    this._wascally = require( 'wascally' );
+	    _rabbit = require( 'lapin' )( this._wascally );
+
+	    this._wascally.configure(config).done(function(){
+
+	    	if(typeof cb === 'function'){
+	    		cb();
+	    	}
+	    });
+
+		this._rabbit = _rabbit;
+		return this;
+	}
+
 	
 	Scaff.prototype.cookieConfig = function(_config) {
 		this._cookieConfig = _config;
@@ -104,19 +136,17 @@
 			.addGzip()
 			.addQueryAndBodyParser();
 
-		if (this._redis) {
+		// if (this._redis) {
 			this
-				.addRedisSessions({
-					client: this._redis
-				})
+				.addRedisSessions()
 				.authenticationRememberMe()
-		}
+		// }
 
-		if (this._mysql) {
+		// if (this._mysql) {
 			this
 				.authenticationApikey()
 				.authenticationLogin()
-		}
+		// }
 
 		return this;
 	}
@@ -125,9 +155,19 @@
 		this
 			.addCookieParser()
 			.addGzip()
-			.addQueryAndBodyParser()
-			.addRedisSessions(redisConfig)
-			.authenticationApikey()
+			.addQueryAndBodyParser();
+
+		// if (this._redis) {
+			this
+				.addRedisSessions()
+				// .authenticationRememberMe()
+		// }
+
+		// if (this._mysql) {
+			this
+				.authenticationApikey()
+				// .authenticationLogin()
+		// }
 
 		return this;
 	}
@@ -228,15 +268,26 @@
 	Scaff.prototype.addRedisSessions = function(redisConfig, _sessionConfig, _cookieConfig) {
 		debug('addRedisSessions')
 
+		if(typeof redisConfig === 'undefined'){
+			if(!this._redis){
+				throw new Error('redis config or client required')
+				// throw new Error('addJade: dir required')
+			}
+			redisConfig = {
+				client: this._redis
+			}
+			// throw new Error('redis required for redis sessions')
+		}
+
 		var sessionConfig = _sessionConfig || {};
 		var cookieConfig = _cookieConfig || this._cookieConfig || {};
 
 		this.addCookieParser();
 		this.addQueryAndBodyParser();
 
-		if (!redisConfig) {
-			throw new Error('redis config or client required')
-		}
+		// if (!redisConfig) {
+		// 	throw new Error('redis config or client required')
+		// }
 
 		// defaults
 		var _config = {
@@ -271,9 +322,6 @@
 	//----------------------------------------
 	Scaff.prototype.serializeUser = function(user, done) {
 		debug('default serializeUser: ' + JSON.stringify(user));
-		if(!user){
-			return done(new Error('user required in serializeUser'));
-		}
 		done(null, user);
 	}
 
@@ -624,7 +672,7 @@
 	Scaff.prototype.checkRoles = function(roles, req, res, next) {
 		var t = this;
 
-		var r = req.user.roles || [];
+		var r = req.user && req.user.roles  ? req.user.roles : [];
 
 		// get array intersection
 		// http://stackoverflow.com/questions/1885557/simplest-code-for-array-intersection-in-javascript/1885569#1885569
@@ -644,211 +692,22 @@
 	//----------------------------------------
 	// logging
 	//----------------------------------------
-	function timeNow() {
-		var d = new Date(),
-			M = d.getMonth() + 1,
-			D = d.getDate(),
-			h = (d.getHours() < 10 ? '0' : '') + d.getHours(),
-			s = (d.getSeconds() < 10 ? '0' : '') + d.getSeconds(),
-			ms = (d.getHours() < 10 ? '0' : '') + d.getMilliseconds(),
-			m = (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
-		// return M +'/' + D +' ' +h + ':' + m;
-		while (ms.toString().length < 4) {
-			ms += '0';
-		}
-		return h + ':' + m + ' ' + s + '.' + ms + ' ' + M + '/' + D;
-	}
-
-	function logTokenCustomStatus(req, res) {
-		var status = res.statusCode;
-
-		if (status >= 500) {
-			return status.toString().red;
-		} else if (status >= 400) {
-			return status.toString().yellow;
-		} else if (status >= 300) {
-			return status.toString().cyan;
-		} else {
-			return status.toString().green
-		}
-	}
-
-	function logTokenUrlWithUser(req, res) {
-		var url = '';
-		if (req.session && typeof req.user === 'object') {
-			// console.info(req.user);
-			url = '(' + (req.session.adminUserView ? 'adminUserView-' : '')
-			url += req.user.username + ':' + req.user.id + ':' + req.user.group_id + ') '
-		}
-		var id = '';
-		url += (id + ' ' + decodeURI(req.originalUrl)).gray;
-
-		return url;
-	}
-
-	function logTokenParams(req, res) {
-		var params = [];
-		// if (decodeURI(req.originalUrl).match(/\?/)) {
-		// 	var tokens = decodeURI(req.originalUrl).replace(/.*\?/, '').split('&');
-
-		// 	for (var i in tokens) {
-		// 		var t = tokens[i];
-		// 		var _tokens = t.split(/\=/);
-		// 		if (_tokens[0] === 'json') {
-		// 			try {
-		// 				var json = JSON.parse(_tokens[1]);
-
-		// 				var keys = Object.keys(json)
-		// 				for (var i in keys) {
-		// 					params.push("  " + (req.id || '') + "  URL  " + _tokens[0] + ", " + keys[i] + " : " + json[keys[i]]);
-		// 				}
-		// 			} catch (e) {
-		// 				params.push("  " + (req.id || '') + "  URL  " + _tokens[0] + " : " + _tokens[1]);
-		// 			}
-		// 		} else {
-		// 			params.push("  " + (req.id || '') + "  URL  " + _tokens[0] + " : " + _tokens[1]);
-		// 		}
-		// 	}
-		// }
-
-		if(req.query){
-			var queryKeys = Object.keys(req.query);
-			for (var k in queryKeys) {
-				var key = queryKeys[k];
-				var v = req.query[key];
-				if(!v){
-					continue;
-				}
-				var p = "  " + (req.id || '') + "  QUERY " + key + " : " + v;
-				params.push(p);
-			}			
-		}
-
-		if(req.body){
-			var keys = Object.keys(req.body);
-			for (var k in keys) {
-				var key = keys[k];
-				var v = req.body[key];
-				var p = "  " + (req.id || '') + "  BODY " + key + " : " + v;
-				params.push(p);
-			}
-		}
-
-		for (var j in params) {
-			params[j] = params[j].replace(/(.*password.* :).*/i, "$1 ------");
-			// params[j] =  params[j];
-		}
-		if (params.length < 1) {
-			return ' ';
-		}
-
-		return "\n" + params.join("\n").bold.gray;
-	}
 	Scaff.prototype.addLogger = function(tokens) {
-		// var t = this;
-		// this.app.use(function(req, res, next) {
-		// // 	// console.info(req.headers);
-
-		// 	if (req.session) {
-		// 		if (!req.session.reqCounter) {
-		// 			req.session.reqCounter = 1;
-		// 		} else {
-		// 			req.session.reqCounter++;
-		// 		}
-
-		// 		// if(!req.incrementedCounter){
-		// 		//	req.session.reqCounter++;
-		// 		// }
-		// 		// req.incrementedCounter = true;
-		// 		req.id = req.session.reqCounter;
-
-		// 	} else {
-		// 		//req.id = uuid.v4()
-		// 		//req.id = req.session.reqCounter
-		// 		req.id = 0;
-		// 	}
-
-		// 	next();
-		// });
-
-		morgan.token('customStatus', logTokenCustomStatus);
-		morgan.token('customMethod', function(req, res) {
-			return (req.method + (req.method.length === 3 ? ' ' : '')).gray;
-		});
-		// morgan.token('reqString', function() {
-		// 	return 'REQ'.gray
-		// });
-		// morgan.token('decodedUrl', function(req, res) {
-		// 	return decodeURI(req.url);
-		// });
-		morgan.token('time', function(req, res) {
-			// return wrapColor(90, timeNow());
-			return timeNow().gray;
-		});
-		morgan.token('urlWithUser', logTokenUrlWithUser);
-
-		morgan.token('ua', function(req, res) {
-			// if (req.url.match('session/init')) {
-			return req.headers['user-agent'];
-			// }
-			// return ' ';
-		});
-
-		morgan.token('responseTime', function(req, res) {
-			var elapsed = Date.now() - req._startTime;
-			var msg = elapsed + 'ms'
-			// if (elapsed > 5 * 1000) {
-			// 	msg += ' SLOW'
-			// 	return msg.red;
-			// }
-			return msg.cyan;
-
-		});
-
-		// morgan.token('cookies', function(req, res) {
-		// 	return req.headers.cookies;
-		// });
-
-		// morgan.token('splitTime', function(req, res) {
-		// 	var msg = ''
-		// 	msg += (req.sphinxQueryTime ? 'sphinx:' + req.sphinxQueryTime * 1000 + ' ' : '')
-		// 	msg += (req.compileDataTime ? 'data:' + req.compileDataTime + ' ' : '')
-		// 	msg += (req.facetDataTime ? 'facet:' + req.facetDataTime + ' ' : '')
-		// 	return msg.cyan;
-		// });
-
-		// morgan.token('pid', function() {
-		// 	return 'pid: ' + process.pid;
-		// });
-
-		morgan.token('params', logTokenParams);
-
 		function skipFn(req, res) {
-
-			if ((req.query && req.query.noLog) || (req.session && req.session.noLog)) {
+			if (req.query && req.query.noLog) {
 				return true;
 			}
 		}
 
-		// this.app.use(morgan(':reqString :customMethod :time :urlWithUser :ua :params', {
-		// 	immediate: true,
-		// 	skip: function(req){
-		// 		if(req.path === '/logout'){
-		// 			return false
-		// 		}
-		// 		return true
-		// 	}
-		// }));
-		this.app.use(morgan(':customStatus :customMethod :time :urlWithUser :ua :responseTime :params', {
-		// this.app.use(morgan(':customStatus :customMethod :time :urlWithUser :ua :responseTime :splitTime :params', {			
-			immediate: false,
-			skip: skipFn
-		}));
-		// this.app.use(morgan(tokens || 'combined', {
+		// this.app.use(this.morgan(tokens || 'combined', {
 		// 	immediate: true,
 		// 	skip: skipFn
 		// }));
 
+		this.app.use(this.morgan(tokens || 'combined', {
+			immediate: false,
+			skip: skipFn
+		}));
 		return this;
 	}
 
@@ -873,13 +732,14 @@
 			);
 
 			
-			/* istanbul ignore next */
+			
+
 			if (process.send) {
 				// for naught
 				process.send('online');
 			}
 			if (cb && typeof cb === 'function') {
-				cb();
+				cb(null, this.address().port);
 			}
 		});
 
@@ -898,21 +758,25 @@
 		})
 	}
 
-	Scaff.prototype.shutdown = function() {
-		/* istanbul ignore else  */
-		if (process.send) {
-			process.send('offline');
-		}
+	Scaff.prototype.shutdown = function(msg) {
 
 		this.server.close(function() {
-			debug(process.pid + " Closed out remaining connections.")
+			debug("server stopped accepting connections")
+			if(msg){
+				console.info(msg)	
+			}
+			
+			if (process.send) {
+				process.send('offline');
+			}			
 		})
-
-		var wait = (this.shutdownTimeout || 1 * 60 * 1000);
-		setTimeout(function() {
-			console.error(process.pid + " Could not close connections in time, forcefully shutting down (waited " + wait + "ms) ")
-			process.exit(1)
-		}, wait);
+		// var t = this;
+		// var wait = (this.shutdownTimeout || 1 * 60 * 1000);
+		// setTimeout(function() {
+		// 	console.error(process.pid + " Could not close connections in time, forcefully shutting down (waited " + wait + "ms) ")
+		// 	delete t.server;	
+		// 	// process.exit(1)
+		// }, wait);
 	}
 
 	//----------------------------------------
@@ -921,11 +785,8 @@
 	Scaff.prototype.authenticated = function(req, res, next) {
 		var t = this
 
-		// if (req.session && req.session.passport && req.session.passport.user) {
 		if (!req.isAuthenticated()) {
 			debug('not authenticated, check apikey');
-
-			// this.passport.authenticate('localapikey', { session: true})(req, res, next);
 
 			this.passport.authenticate('localapikey', function(err, user, info) {
 				t.authenticateHandler(err, user, info, req, res, next)
@@ -973,7 +834,6 @@
 		// reset client cookies
 		res.cookie(this.sessionCookieLabel, '');
 		res.cookie(this.rememberMeCookieLabel, '');
-
 
 		res.redirect('/'); 
 	};

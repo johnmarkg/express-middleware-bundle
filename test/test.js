@@ -203,32 +203,17 @@
 		})
 	});
 
-	describe('web, no redis or mysql', function() {
-		var _server = server.ExpressMiddlewareBundle();
-		// var _mochaHttp = mochaHttp.MochaHttpUtils();
+	// describe('web, no redis or mysql', function() {
+	// 	var _server = server.ExpressMiddlewareBundle();
+	// 	// var _mochaHttp = mochaHttp.MochaHttpUtils();
 
-		_server.web();
+	// 	_server.web();
 
-	})
+	// })
+
+
 
 	describe('messages/shutdown', function() {
-		var _server;
-
-		after(function() {
-			process.on('uncaughtException', originalException)
-		})
-
-		before(function() {
-			originalException = process.listeners('uncaughtException').pop();
-			process.removeListener('uncaughtException', originalException);
-
-			_server = server.ExpressMiddlewareBundle()
-			_server.app.get('/slow', function(req, res) {
-				setTimeout(function() {
-					return res.end()
-				}, 1000);
-			});
-		})
 
 		it('start cb', function(done) {
 			
@@ -239,44 +224,111 @@
 			})
 		});
 
-		it('online', function(done) {
+		it('online message', function(done) {
 			process.send = function(msg) {
 				assert(msg, 'online')
 				delete process.send;
 				done();
 			}
-			_server.start(0)
+			var _server2 = server.ExpressMiddlewareBundle()	
+			_server2.start(0);
 		});
 
-		it('offline', function(done) {
-			process.send = function(msg) {
-				assert(msg, 'offline')
-				delete process.send;
-			}
+		it('offline message', function(done) {
 
-			request(_server.server)
-				.get('/slow')
-				.expect(200, done);
 
-			setTimeout(function() {
-				_server.shutdown();
-			}, 100)
+			var _server2 = server.ExpressMiddlewareBundle()
 
-		});
-
-		it('accept no more requests', function(done) {
-
-			var uncaughtListener = function(error) {
-				assert.equal(error.code, 'ECONNREFUSED');
-				done();
-			}
-			process.once("uncaughtException", uncaughtListener);
-
-			request(_server.server)
-				.get('/slow')
-				.expect(200, done);
+			_server2.start(0, function(){
+				process.send = function(msg) {
+					assert(msg, 'offline')
+					delete process.send;
+					done();
+				}				
+				_server2.shutdown();								
+			})
 
 		});
+
+		describe('shutdown', function(){
+
+			var _server2 = server.ExpressMiddlewareBundle()
+			// _server2.addLogger();
+			_server2.app.get('/slow/:ms', function(req, res) {
+				// console.info(req.params.ms)
+
+				setTimeout(function() {
+					return res.end()
+				}, req.params.ms);
+			});			
+			_server2.shutdownTimeout = 600
+
+			var _port;
+			it('respond to pending request on shutdown', function(done){
+				_server2.start(0, function(err, p){
+					_port = p
+
+					// request(_server2.server)
+					// 	.get('/slow/1000')
+					// 	.expect(500, done);
+
+
+					request(_server2.server)
+						.get('/slow/400')
+						.expect(200, done);
+						// .expect(200);
+
+					setTimeout(function(){
+						_server2.shutdown('shutdown message 2');								
+					},20)
+
+					setTimeout(function(){
+
+						request('http://127.0.0.1:'+_port)
+							.get('/slow/100')
+							// .expect(200)
+							.end(function(err, res){
+								assert('ECONNREFUSED',err.code)
+								// done();
+							});
+					},40)
+
+				});
+
+			});
+
+			it('stop accepting new connections', function(done){
+				request('http://127.0.0.1:'+_port)
+					.get('/slow/100')
+
+					.end(function(err, res){
+						assert('ECONNREFUSED',err.code)
+						done();
+					});
+			})
+
+
+		})
+		// it('accept no more requests', function(done) {
+
+			
+
+		// 	_server2.start(0, function(){
+		// 		request(_server2.server)
+		// 			.get('/slow/1000')
+		// 			// .get('/')
+		// 			.expect(200);	
+
+		// 		_server2.shutdown();
+
+		// 		request(_server2.server)
+		// 			.get('/slow/100')
+		// 			// .get('/')
+		// 			.expect(500,done);					
+
+		// 	});
+
+		// });
 	});
 
 	describe('gzip', function() {
@@ -365,15 +417,6 @@
 	});
 
 	describe('sessions', function() {
-
-		it.skip('no session until something is set in req.session', function(done) {
-			mochaHttp.http({
-				path: 'set-session'
-			}, function(err, res, body) {
-				assert(!res.headers['set-cookie']);
-				done();
-			})
-		});
 
 		it('start session', function(done) {
 			request(server.app)
@@ -631,24 +674,157 @@
 
 	});
 
+
+	describe('api', function(){
+		// var _server = server.ExpressMiddlewareBundle();
+		// _server
+		// 	// .redis(fakeredis.createClient('test'))
+		// 	// .mysql(mysql)
+		// 	// .cookieConfig({
+		// 	// 	domain: cookieDomain
+		// 	// })
+		// 	.api();		
+			
+		// // routes(_server);
+		// _server.post('/login', _server.login.bind(_server));
+		// _server.use(_server.authenticated.bind(_server));
+		// _server.get('/authenticated', function(req, res, next){
+		// 	res.end();
+		// });
+		// _server.errorHandler();
+
+		// _server.app.set('dontPrintErrors', true)
+
+		it('requires redis', function(){
+			var _server = server.ExpressMiddlewareBundle();
+
+			assert.throws(function(){
+				_server.api();
+			}, /redis/)
+			
+			assert.doesNotThrow(function(){
+				_server.redis(fakeredis.createClient('test'))
+				_server.api();
+			})
+
+		})
+
+		it('default auth fails with no mysql', function(done){
+			var _server = server.ExpressMiddlewareBundle();			
+			_server.redis(fakeredis.createClient('test'))
+			_server.api();
+			_server.use(_server.authenticated.bind(_server));
+			_server.get('/authenticated', function(req, res, next){
+				res.end();
+			});			
+			_server.errorHandler();
+
+			_server.app.set('dontPrintErrors', true)
+
+			request(_server.app)
+				.get('/authenticated')
+				.query({
+					apikey: 1
+				})				
+				.expect(500)
+				.expect(/mysql.*required/, done)
+		})
+
+		it('no local strategy', function(done) {
+			var _server = server.ExpressMiddlewareBundle();
+			_server
+				.redis(fakeredis.createClient('test'))
+				.mysql(mysql)
+				.api();		
+				
+			_server.post('/login', _server.login.bind(_server));	
+			_server.errorHandler();		
+			_server.app.set('dontPrintErrors', true)	
+			request(_server.app)
+				.post('/login')
+				.send({
+					username: 'user',
+					password: 'password'
+				})
+				.expect(500)
+				.expect(/Unknown authentication strategy/, done)
+		});
+
+		it('cookies work', function(done){
+
+			var _server = server.ExpressMiddlewareBundle();
+			_server
+				.redis(fakeredis.createClient('test'))
+				.mysql(mysql)
+				.cookieConfig({
+					domain: cookieDomain
+				})
+				.api();		
+				
+			// routes(_server);
+			_server.post('/login', _server.login.bind(_server));
+			_server.use(_server.authenticated.bind(_server));
+			_server.get('/authenticated', function(req, res, next){
+				res.end();
+			});
+			_server.errorHandler();
+
+			_server.app.set('dontPrintErrors', true)	
+			request(server.app)
+				.post('/login')
+				.send({
+					username: 'user',
+					password: 'password'
+				})
+				.expect(200)
+				.end(function(err, res){
+					if(err){
+						return done(err)
+					}
+					var _cookie = res.headers['set-cookie'];
+					request(_server.app)
+						.get('/authenticated')
+						.set('cookie', _cookie)
+						.expect(200, done)
+							
+				})
+		});
+
+
+	});
+
 	describe('checkRoles', function() {
-		it('pass', function(done) {
+		it('200', function(done) {
 			request(server.app)
 				.get('/roleA')
 				.set('cookie', sessionCookie)
 				.expect(200, done)
 		});
 
-		it('pass2', function(done) {
+		it('200 miss then match', function(done) {
 			request(server.app)
 				.get('/roleBorC')
 				.set('cookie', sessionCookie)
 				.expect(200, done)
 		});
 
-		it('fail', function(done) {
+		it('401 incorrect roles', function(done) {
 			request(server.app)
 				.get('/roleC')
+				.set('cookie', sessionCookie)
+				.expect(403, done)
+		});
+		
+		it('401 no user roles', function(done) {
+			request(server.app)
+				.get('/noRoles')
+				.set('cookie', sessionCookie)
+				.expect(403, done)
+		})
+
+		it('401 no user', function(done) {
+			request(server.app)
+				.get('/rolesNoUser')
 				.set('cookie', sessionCookie)
 				.expect(403, done)
 		})
@@ -1081,7 +1257,7 @@
 
 	describe('get/set', function() {
 		var _server;
-		before(function(){
+		beforeEach(function(){
 			_server = server.ExpressMiddlewareBundle();
 		})
 		
@@ -1094,25 +1270,27 @@
 			assert(r.query)
 		})		
 
+
 		it('redis client', function(){
 			_server.redis(fakeredis.createClient('test'))
 			var r  = _server.redis()
 			assert(r._events)			
 		})
 
-		it('mysql client', function(){
-			_server.mysql(mysql)
-			var r  = _server.mysql()
-			assert(r._events)			
-		})		
-
 		it('redis config', function(done){
-			_server.redis({port: 65534, host:'127.0.0.1'})	
-			_server.redis().on('error', function(err){
+			_server.redis({port: 65534, host:'127.0.0.1', options:{max_attempts: 1} })	
+			_server.redis().once('error', function(err){
 				assert(err)
 				done();
 			});
+		})	
+
+		it('mysql client', function(){
+			_server.mysql(mysql)
+			assert(_server.mysql()._events)			
 		})		
+
+	
 
 		it('mysql config', function(done){
 			_server.mysql({port: 65534, host:'127.0.0.1'})	
@@ -1120,11 +1298,60 @@
 			assert(r._events)						
 			done();
 		})				
+
+		it('rabbit get', function(){
+			_server._rabbit = 1;
+			assert(_server.rabbit() );
+		})
+
+		it('rabbit set', function(done){
+
+				_server.rabbit({
+					name: 'test',
+					server: 'host',
+					port: '1',
+					user: 'u',
+					pass: 'p',
+					// timeout: 100,
+				    replyQueue: {
+				        name: 'replies',
+				        subscribe: 'true',
+				        durable: true
+				    },					
+				}, function(){
+					_server._wascally.once('test.connection.failed', function(err){
+						assert.equal('No endpoints could be reached',err)
+						done();	
+					});
+					
+				});
+		});
+
+
+		it('rabbit set 2', function(){
+
+				_server.rabbit({connection: {
+					name: 'test',
+					server: 'host',
+					port: '1',
+					user: 'u',
+					pass: 'p',
+					// timeout: 100,
+				    replyQueue: {
+				        name: 'replies',
+				        subscribe: 'true',
+				        durable: true
+				    },					
+				}});
+				assert(_server.rabbit().send);
+		});
+
+
 	})
 
-	function routes(server) {
+	function routes(_localServer) {
 
-		// server.deserializeUser = function(string, cb) {
+		// _localServer.deserializeUser = function(string, cb) {
 		// 	var user;
 		// 	if (string == 1) {
 		// 		user = {
@@ -1138,7 +1365,7 @@
 
 		
 
-		server.authenticationLogin(function(req, u, p, cb) {
+		_localServer.authenticationLogin(function(req, u, p, cb) {
 			if (u === 'user' && p === 'password') {
 				return cb(null, {
 					id: 1
@@ -1149,7 +1376,7 @@
 				});
 			}
 		});
-		server.authenticationApikey(function(req, key, cb) {
+		_localServer.authenticationApikey(function(req, key, cb) {
 			if (key === '123') {
 				return cb(null, {
 					id: 1
@@ -1161,39 +1388,39 @@
 			}
 		});
 
-		server.get('/', function(req, res) {
+		_localServer.get('/', function(req, res) {
 			return res.json({
 				'hey': 'there'
 			})
 		});
 
-		server.get('/check-session', function(req, res) {
+		_localServer.get('/check-session', function(req, res) {
 			return res.json({
 				value: req.session ? req.session[req.query.key] : false
 			});
 		});
-		server.get('/set-session', function(req, res) {
+		_localServer.get('/set-session', function(req, res) {
 			req.session[req.query.key] = req.query.value
 			return res.end();
 		});
 
-		server.get('/params', function(req, res) {
+		_localServer.get('/params', function(req, res) {
 			return res.json([req.query || {},
 				req.body || {}]);
 		})
-		server.post('/params', function(req, res) {
+		_localServer.post('/params', function(req, res) {
 			return res.json([req.query || {},
 				req.body || {}]);
 		})
 
 		// https://github.com/strongloop/express/issues/782
-		server.post('/login', server.login.bind(server));
-		server.get('/logout', server.logout.bind(server));
+		_localServer.post('/login', _localServer.login.bind(_localServer));
+		_localServer.get('/logout', _localServer.logout.bind(_localServer));
 
 		// every route after this requires authentication
-		server.use(server.authenticated.bind(server));
+		_localServer.use(_localServer.authenticated.bind(_localServer));
 
-		server.get('/authenticated', function(req, res, next) {
+		_localServer.get('/authenticated', function(req, res, next) {
 			res.status(401);
 			var count = 1;
 			if (req.isAuthenticated() || req.user) {
@@ -1214,28 +1441,51 @@
 			})
 		})
 
-		server.get(
+		_localServer.get(
 			'/roleA',
-			server.checkRoles.bind(server, ['roleX', 'roleA']),
+			_localServer.checkRoles.bind(_localServer, ['roleX', 'roleA']),
 			function(req, res) {
 				res.end()
 			}
 		)
-		server.get(
+		_localServer.get(
 			'/roleC',
-			server.checkRoles.bind(server, ['roleX', 'roleC']),
+			_localServer.checkRoles.bind(_localServer, ['roleX', 'roleC']),
 			function(req, res) {
 				res.end()
 			}
 		)
 
-		server.get(
+		_localServer.get(
 			'/roleBorC',
-			server.checkRoles.bind(server, ['roleB', 'roleC']),
+			_localServer.checkRoles.bind(_localServer, ['roleB', 'roleC']),
 			function(req, res) {
 				res.end()
 			}
 		)	
+
+		_localServer.get(
+			'/noRoles',
+			function(req, res, next){
+				delete req.user.roles
+				next();
+			},
+			_localServer.checkRoles.bind(_localServer, ['roleB', 'roleC']),
+			function(req, res) {
+				res.end()
+			}
+		)			
+		_localServer.get(
+			'/rolesNoUser',
+			function(req, res, next){
+				delete req.user
+				next();
+			},
+			_localServer.checkRoles.bind(_localServer, ['roleB', 'roleC']),
+			function(req, res) {
+				res.end()
+			}
+		)			
 
 
 
