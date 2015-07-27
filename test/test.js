@@ -1251,6 +1251,12 @@
 				});
 		});		
 
+		it('server.log', function(){
+			spyStdout.reset();
+			_server.log('log message')
+			assert.equal(1,spyStdout.callCount)
+		})
+
 
 	})
 

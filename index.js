@@ -692,24 +692,39 @@
 	//----------------------------------------
 	// logging
 	//----------------------------------------
-	Scaff.prototype.addLogger = function(tokens) {
+	Scaff.prototype.addLogger = function(tokens, immediate) {
+
 		function skipFn(req, res) {
 			if (req.query && req.query.noLog) {
 				return true;
 			}
 		}
 
-		// this.app.use(this.morgan(tokens || 'combined', {
-		// 	immediate: true,
-		// 	skip: skipFn
-		// }));
-
-		this.app.use(this.morgan(tokens || 'combined', {
-			immediate: false,
+		var morganFn = this.morgan(tokens || '[:date[iso]] :method :url HTTP/:http-version :status :res[content-length] ":referrer" ":user-agent"', {
+			immediate: immediate,
 			skip: skipFn
-		}));
+		});
+
+		var manualLogger = this.morgan(tokens || '[:date[iso]] :method :url', {
+			immediate: true
+		});
+
+		this.app.use(morganFn);
+
+
+		this.log = function(string){
+			var req = {
+				url: string,
+				method: 'LOG'
+			}
+			
+			manualLogger(req, {}, function(){})
+			return this;
+		}
+
 		return this;
 	}
+
 
 	//----------------------------------------
 	// start/stop server
