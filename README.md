@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/johnmarkg/express-middleware-bundle.svg?branch=master)](https://travis-ci.org/johnmarkg/express-middleware-bundle)
+[![Coverage Status](https://coveralls.io/repos/johnmarkg/express-middleware-bundle/badge.svg?branch=master)](https://coveralls.io/r/<account>/<repository>?branch=master)
+
 Express bundled with Passport authentication, Redis sessions, morgan logs
 
 
