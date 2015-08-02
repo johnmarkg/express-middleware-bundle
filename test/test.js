@@ -829,6 +829,46 @@
 				.expect(403, done)
 		})
 
+		it('wrapper denied', function(done){
+			var testVal = 'denied'
+			server.get(
+				'/checkRolesWrapperDenied',
+				server.checkRolesWrapper.bind(server, ['roleC'], function(req, res, next){
+					testVal = 'allowed'
+					next();
+				}),
+				function(req, res, next){
+					res.end(testVal)
+				}
+			);
+			request(server.app)
+				.get('/checkRolesWrapperDenied')
+				.set('cookie', sessionCookie)
+				.expect(200)
+				.expect('denied', done)
+
+		});
+
+		it('wrapper allowed', function(done){
+			var testVal = 'denied'
+			server.get(
+				'/checkRolesWrapperAllowed',
+				server.checkRolesWrapper.bind(server, ['roleA'], function(req, res, next){
+					testVal = 'allowed'
+					next();
+				}),
+				function(req, res, next){
+					res.end(testVal)
+				}
+			);
+			request(server.app)
+				.get('/checkRolesWrapperAllowed')
+				.set('cookie', sessionCookie)
+				.expect(200)
+				.expect('allowed', done)
+
+		})		
+
 	})
 
 	describe('logout', function() {
@@ -1491,9 +1531,7 @@
 			function(req, res) {
 				res.end()
 			}
-		)			
-
-
+		)	
 
 	}
 

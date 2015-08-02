@@ -81,6 +81,16 @@ server.get(
 	}
 )
 
+//------------------------------------
+// check user roles for conditional middleware
+//------------------------------------
+server.get(
+	'/needARoleForSomeMiddleware', 
+	getSomeData,
+	server.checkRolesWrapper.bind(server,['roleA'], conditionalMiddlewareToModifyData),
+	returnData
+)
+
 
 server.start(port, function(){
 	// server has started
