@@ -335,7 +335,13 @@
 			if (err) {
 				return done(err)
 			}
-			rows[0].roles = rows[0].roles.split(',');
+
+			var roles = rows[0].roles.split(',');
+			rows[0].roles = {};
+			
+			for(var i in roles){
+				rows[0].roles[roles[i]] = true;
+			}
 			delete rows[0].password;
 			return done(null, rows[0])
 		})
@@ -686,18 +692,25 @@
 
 		return next();
 	}
-	
-	function roleTest(roles, req){
-		var r = req.user && req.user.roles  ? req.user.roles : [];
 
-		// get array intersection
-		// http://stackoverflow.com/questions/1885557/simplest-code-for-array-intersection-in-javascript/1885569#1885569
-		var match = r.filter(function(n) {
-		    return roles.indexOf(n) != -1
-		});		
-		if(match.length > 0){
-			return true;
-		}		
+	function roleTest(roles, req){
+		var r = req.user && req.user.roles  ? req.user.roles : {};
+
+		// // get array intersection
+		// // http://stackoverflow.com/questions/1885557/simplest-code-for-array-intersection-in-javascript/1885569#1885569
+		// var match = r.filter(function(n) {
+		//     return roles.indexOf(n) != -1
+		// });		
+		// if(match.length > 0){
+		// 	return true;
+		// }		
+		// return false;
+
+		for(var i in roles){
+			if(r[roles[i]]){
+				return true
+			}
+		}
 		return false;
 	}
 
