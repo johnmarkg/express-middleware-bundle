@@ -19,6 +19,8 @@
 
 	var spyError = sinon.spy(console, 'error');
 
+	var Rabbus = require("rabbus");
+
 	before(function() {
 
 		server
@@ -1394,6 +1396,192 @@
 
 
 	})
+
+
+describe('rabbit', function(){
+
+
+	beforeEach(function(done){
+				server.rabbit({
+					name: 'test',
+					server: 'host',
+					port: '1',
+					user: 'u',
+					pass: 'p',
+					// // timeout: 100,
+				 //    replyQueue: {
+				 //        name: 'replies',
+				 //        subscribe: 'true',
+				 //        durable: true
+				 //    },					
+				}, function(){
+					server._wascally.once('test.connection.failed', function(err){
+						// assert.equal('No endpoints could be reached',err)
+						done();	
+					});
+					
+				});		
+	})
+
+	it('rabbitRequest', function(done) {
+		var stub = sinon.stub(Rabbus, 'Requester', function(r, config) {
+			assert.equal('req-res.version-exchange' ,config.exchange)
+			assert.equal('version.queue' ,config.routingKey)
+			assert.equal('req-res.version.queue' ,config.messageType)
+			return {
+				request: function(msg, cb) {
+					assert.equal(msg.test, true)
+					assert(typeof cb === 'function')
+					cb(null, {response: true})
+				},
+				exchange: 'test-exchange'
+			}
+		});
+
+		server.rabbitRequest('version', 'queue', {
+			test: true
+		}, function(err, response) {
+			assert.equal(response.response, true);
+			server.rabbitRequest('version', 'queue', {
+				test: true
+			}, function(err, response) {
+				assert.equal(response.response, true);
+				sinon.assert.calledOnce(stub)
+				Rabbus.Requester.restore();
+				done();
+			})
+
+		})
+
+	});
+
+	it('rabbitRespond', function(done) {	
+		var stub = sinon.stub(Rabbus, 'Responder', function(r, config) {
+			assert.equal('req-res.version-exchange' ,config.exchange)
+			assert.equal('version.queue' ,config.routingKey)
+			assert.equal('req-res.version.queue' ,config.messageType)
+			assert.deepEqual({ name: 'req-res.version.queue', limit: 2 }, config.queue)
+
+			return {
+				handle: function(cb) {
+					cb(null, {response: true})
+				},
+				exchange: 'test-exchange'
+			}
+		});		
+		server.rabbitRespond('version', 'queue', 2,function(err, response){
+			assert.equal(response.response, true);
+			sinon.assert.calledOnce(stub)
+			Rabbus.Responder.restore();
+			done();
+		});
+
+	});
+	it('rabbitRespond non number limit', function(done) {	
+		var stub = sinon.stub(Rabbus, 'Responder', function(r, config) {
+			assert.equal('req-res.version-exchange' ,config.exchange)
+			assert.equal('version.queue' ,config.routingKey)
+			assert.equal('req-res.version.queue' ,config.messageType)
+			assert.deepEqual({ name: 'req-res.version.queue', limit: 1 }, config.queue)
+
+			return {
+				handle: function(cb) {
+					cb(null, {response: true})
+				},
+				exchange: 'test-exchange'
+			}
+		});		
+		server.rabbitRespond('version', 'queue', 'string',function(err, response){
+			assert.equal(response.response, true);
+			sinon.assert.calledOnce(stub)
+			Rabbus.Responder.restore();
+			done();
+		});
+
+
+	});
+
+
+	it('rabbitSend', function(done) {
+		var stub = sinon.stub(Rabbus, 'Sender', function(r, config) {
+			// console.info(arguments)
+			assert.equal('send-rec.version-exchange' ,config.exchange)
+			assert.equal('version.queue' ,config.routingKey)
+			assert.equal('send-rec.version.queue' ,config.messageType)
+			return {
+				send: function(msg, cb) {
+					assert.equal(msg.test, true)
+					assert(typeof cb === 'function')
+					cb(null)
+				},
+				exchange: 'test-exchange'
+			}
+		});
+
+		server.rabbitSend('version', 'queue', {
+			test: true
+		}, function(err, response) {
+			assert(!err);
+			// done()
+			// assert.equal(response.sent, true);
+			server.rabbitSend('version', 'queue', {
+				test: true
+			}, function(err) {
+				assert(!err)
+				// assert.equal(response.sent, true);
+				sinon.assert.calledOnce(stub)
+				Rabbus.Sender.restore();
+				done();
+			})
+
+		})
+
+	});	
+
+
+	it('rabbitReceive', function(done) {	
+		var stub = sinon.stub(Rabbus, 'Receiver', function(r, config) {
+			assert.equal('send-rec.version-exchange' ,config.exchange)
+			assert.equal('version.queue' ,config.routingKey)
+			assert.equal('send-rec.version.queue' ,config.messageType)
+			assert.deepEqual({ name: 'send-rec.version.queue', limit: 2 }, config.queue)
+
+			return {
+				receive: function(cb) {
+					cb(null)
+				},
+				exchange: 'test-exchange'
+			}
+		});		
+		server.rabbitReceive('version', 'queue', 2,function(err, _done){
+			assert(!err)
+			sinon.assert.calledOnce(stub)
+			Rabbus.Receiver.restore();
+			done();
+		});
+
+	});
+
+	it('rabbitReceive non number limit', function(done) {	
+		var stub = sinon.stub(Rabbus, 'Receiver', function(r, config) {
+			assert.deepEqual({ name: 'send-rec.version.queue', limit: 1 }, config.queue)
+			return {
+				receive: function(cb) {
+					cb(null)
+				},
+				exchange: 'test-exchange'
+			}
+		});		
+		server.rabbitReceive('version', 'queue', 'string',function(err, _done){
+			assert(!err)
+			sinon.assert.calledOnce(stub)
+			Rabbus.Receiver.restore();
+			done();
+		});
+
+	});	
+
+})
 
 	function routes(_localServer) {
 
