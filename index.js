@@ -14,7 +14,14 @@
 	var LocalAPIKeyStrategy = require('passport-localapikey').Strategy;
 	var RememberMeStrategy = require('passport-remember-me').Strategy;
 
-	// var colors = require('colors');
+
+	var util = require("util");
+	var Rabbus = require("rabbus");
+
+
+
+		
+
 
 	function Scaff() {
 
@@ -124,6 +131,64 @@
 	Scaff.prototype.cookieConfig = function(_config) {
 		this._cookieConfig = _config;
 		return this;
+	}
+
+	//----------------------------------------
+	// rabbit
+	//----------------------------------------
+	// Scaff.prototype.rabbitReceive = function(queue, handler){
+
+
+
+	// }
+
+
+	function Responder(rabbus, version, label) {
+		Rabbus.Responder.call(this, rabbus, {
+			exchange: "req-res." + version + "-exchange",
+			queue: {
+				name: "req-res." + label + "-queue",
+				limit: typeof limit === 'number' ? limit : 0
+			},
+			// routingKey: "req-res.key",
+			messageType: "req-res." + version + '.' + label
+		});
+	}
+	util.inherits(Responder, Rabbus.Responder);
+
+
+	Scaff.prototype.rabbitRespond = function(version, queue, limit, handler){
+		var responder = new Responder(this.rabbit(), version, queue, limit);
+		responder.handle(cb);		
+	}
+
+	function Requester(rabbus, version, label) {
+		Rabbus.Requester.call(this, rabbus, {
+			exchange: "req-res." + version + "-exchange",
+			messageType: "req-res." + version + '.' + label
+		});
+	}
+	util.inherits(Requester, Rabbus.Requester);
+
+	Scaff.prototype.rabbitRequest = function(version, label, msg, cb){
+		// var responder = new Responder(this.rabbit(), version, queue, limit);
+		// responder.handle(cb);		
+		if(!this.requesters){
+			this.requesters = {}
+		}
+
+		var key = version + '-' + label;
+
+		if(!this.requesters[key]){
+			this.requesters[key] = new Requester(
+				this.rabbit(), 
+				version, 
+				label
+			);
+		}
+		
+		var msg = {};
+		this.requesters[key].request(msg, cb);
 	}
 
 	//----------------------------------------
