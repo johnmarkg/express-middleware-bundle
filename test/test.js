@@ -20,6 +20,7 @@
 	var spyError = sinon.spy(console, 'error');
 
 	var Rabbus = require("rabbus");
+	var Q = require('q');
 
 	before(function() {
 
@@ -37,8 +38,6 @@
 
 		server.errorHandler();
 	});
-	
-
 
 	describe('errors', function() {
 		var _server;
@@ -136,9 +135,9 @@
 				})
 				.expect(500)
 				.end(function(err, res) {
-					if(err){
+					if (err) {
 						return done(err);
-					}					
+					}
 					assert.equal(3, spyError.callCount);
 					done();
 				});
@@ -164,9 +163,9 @@
 				})
 				.expect(500)
 				.end(function(err, res) {
-					if(err){
+					if (err) {
 						return done(err);
-					}					
+					}
 					assert.equal(0, spyError.callCount);
 					done();
 				});
@@ -213,14 +212,12 @@
 
 	// })
 
-
-
 	describe('messages/shutdown', function() {
 
 		it('start cb', function(done) {
-			
+
 			var _server2 = server.ExpressMiddlewareBundle()
-			_server2.start(0, function(){
+			_server2.start(0, function() {
 				assert(true)
 				done()
 			})
@@ -232,88 +229,83 @@
 				delete process.send;
 				done();
 			}
-			var _server2 = server.ExpressMiddlewareBundle()	
+			var _server2 = server.ExpressMiddlewareBundle()
 			_server2.start(0);
 		});
 
 		it('offline message', function(done) {
 
-
 			var _server2 = server.ExpressMiddlewareBundle()
 
-			_server2.start(0, function(){
+			_server2.start(0, function() {
 				process.send = function(msg) {
 					assert(msg, 'offline')
 					delete process.send;
 					done();
-				}				
-				_server2.shutdown();								
+				}
+				_server2.shutdown();
 			})
 
 		});
 
-		describe('shutdown', function(){
+		describe('shutdown', function() {
 
 			var _server2 = server.ExpressMiddlewareBundle()
-			// _server2.addLogger();
+				// _server2.addLogger();
 			_server2.app.get('/slow/:ms', function(req, res) {
 				// console.info(req.params.ms)
 
 				setTimeout(function() {
 					return res.end()
 				}, req.params.ms);
-			});			
+			});
 			_server2.shutdownTimeout = 600
 
 			var _port;
-			it('respond to pending request on shutdown', function(done){
-				_server2.start(0, function(err, p){
+			it('respond to pending request on shutdown', function(done) {
+				_server2.start(0, function(err, p) {
 					_port = p
 
 					// request(_server2.server)
 					// 	.get('/slow/1000')
 					// 	.expect(500, done);
 
-
 					request(_server2.server)
 						.get('/slow/400')
 						.expect(200, done);
-						// .expect(200);
+					// .expect(200);
 
-					setTimeout(function(){
-						_server2.shutdown('shutdown message 2');								
-					},20)
+					setTimeout(function() {
+						_server2.shutdown('shutdown message 2');
+					}, 20)
 
-					setTimeout(function(){
+					setTimeout(function() {
 
-						request('http://127.0.0.1:'+_port)
+						request('http://127.0.0.1:' + _port)
 							.get('/slow/100')
-							// .expect(200)
-							.end(function(err, res){
-								assert('ECONNREFUSED',err.code)
-								// done();
-							});
-					},40)
+						// .expect(200)
+						.end(function(err, res) {
+							assert('ECONNREFUSED', err.code)
+							// done();
+						});
+					}, 40)
 
 				});
 
 			});
 
-			it('stop accepting new connections', function(done){
-				request('http://127.0.0.1:'+_port)
+			it('stop accepting new connections', function(done) {
+				request('http://127.0.0.1:' + _port)
 					.get('/slow/100')
 
-					.end(function(err, res){
-						assert('ECONNREFUSED',err.code)
-						done();
-					});
+				.end(function(err, res) {
+					assert('ECONNREFUSED', err.code)
+					done();
+				});
 			})
-
 
 		})
 		// it('accept no more requests', function(done) {
-
-			
 
 		// 	_server2.start(0, function(){
 		// 		request(_server2.server)
@@ -336,7 +328,7 @@
 	describe('gzip', function() {
 		var _server;
 
-		before(function(){
+		before(function() {
 			_server = server.ExpressMiddlewareBundle();
 			_server.addGzip({
 				threshold: 1,
@@ -346,7 +338,7 @@
 				res.json({
 					abc: 123
 				})
-			})			
+			})
 		});
 
 		it('compressed', function(done) {
@@ -363,10 +355,10 @@
 				.set('Accept-Encoding', '')
 				.expect(200)
 				.expect(function(res) {
-					if(res.headers['content-encoding']){
+					if (res.headers['content-encoding']) {
 						return 'got content-encoding'
 					}
-					
+
 				})
 				.end(done);
 		});
@@ -387,7 +379,7 @@
 				.set('Accept-Encoding', 'gzip,deflate')
 				.expect(200)
 				.expect(function(res) {
-					if(res.headers['content-encoding']){
+					if (res.headers['content-encoding']) {
 						return 'got content-encoding'
 					}
 				})
@@ -439,9 +431,9 @@
 				})
 				.expect('set-cookie', /sessionId/)
 				.end(function(err, res) {
-					if(err){
+					if (err) {
 						return done(err);
-					}					
+					}
 					sessionCookie = res.headers['set-cookie'][0];
 					assert(sessionCookie.indexOf('Domain=' + cookieDomain + ';') > -1)
 					done();
@@ -561,7 +553,7 @@
 				})
 				.expect(200)
 				.end(function(err, res) {
-					if(err){
+					if (err) {
 						return done(err);
 					}
 					request(server.app)
@@ -572,7 +564,7 @@
 		});
 
 		it('apikey, deserialize fail', function(done) {
-			server.deserializeUser = function(uid, cb){
+			server.deserializeUser = function(uid, cb) {
 				cb(new Error('deserializeError'))
 			}
 			request(server.app)
@@ -583,9 +575,6 @@
 				.expect(500)
 				.expect(/deserializeError/, done)
 		});
-
-
-
 
 		it('loginFn mysql error', function(done) {
 			request(server.app)
@@ -640,7 +629,9 @@
 				})
 				.expect(200)
 				.end(function(err, res) {
-					if(err){ return done(err); }
+					if (err) {
+						return done(err);
+					}
 
 					sessionCookie = res.headers['set-cookie'][0]
 					request(server.app)
@@ -676,8 +667,7 @@
 
 	});
 
-
-	describe('api', function(){
+	describe('api', function() {
 		// var _server = server.ExpressMiddlewareBundle();
 		// _server
 		// 	// .redis(fakeredis.createClient('test'))
@@ -686,7 +676,7 @@
 		// 	// 	domain: cookieDomain
 		// 	// })
 		// 	.api();		
-			
+
 		// // routes(_server);
 		// _server.post('/login', _server.login.bind(_server));
 		// _server.use(_server.authenticated.bind(_server));
@@ -697,28 +687,28 @@
 
 		// _server.app.set('dontPrintErrors', true)
 
-		it('requires redis', function(){
+		it('requires redis', function() {
 			var _server = server.ExpressMiddlewareBundle();
 
-			assert.throws(function(){
+			assert.throws(function() {
 				_server.api();
 			}, /redis/)
-			
-			assert.doesNotThrow(function(){
+
+			assert.doesNotThrow(function() {
 				_server.redis(fakeredis.createClient('test'))
 				_server.api();
 			})
 
 		})
 
-		it('default auth fails with no mysql', function(done){
-			var _server = server.ExpressMiddlewareBundle();			
+		it('default auth fails with no mysql', function(done) {
+			var _server = server.ExpressMiddlewareBundle();
 			_server.redis(fakeredis.createClient('test'))
 			_server.api();
 			_server.use(_server.authenticated.bind(_server));
-			_server.get('/authenticated', function(req, res, next){
+			_server.get('/authenticated', function(req, res, next) {
 				res.end();
-			});			
+			});
 			_server.errorHandler();
 
 			_server.app.set('dontPrintErrors', true)
@@ -727,7 +717,7 @@
 				.get('/authenticated')
 				.query({
 					apikey: 1
-				})				
+				})
 				.expect(500)
 				.expect(/mysql.*required/, done)
 		})
@@ -737,11 +727,11 @@
 			_server
 				.redis(fakeredis.createClient('test'))
 				.mysql(mysql)
-				.api();		
-				
-			_server.post('/login', _server.login.bind(_server));	
-			_server.errorHandler();		
-			_server.app.set('dontPrintErrors', true)	
+				.api();
+
+			_server.post('/login', _server.login.bind(_server));
+			_server.errorHandler();
+			_server.app.set('dontPrintErrors', true)
 			request(_server.app)
 				.post('/login')
 				.send({
@@ -752,7 +742,7 @@
 				.expect(/Unknown authentication strategy/, done)
 		});
 
-		it('cookies work', function(done){
+		it('cookies work', function(done) {
 
 			var _server = server.ExpressMiddlewareBundle();
 			_server
@@ -761,17 +751,17 @@
 				.cookieConfig({
 					domain: cookieDomain
 				})
-				.api();		
-				
+				.api();
+
 			// routes(_server);
 			_server.post('/login', _server.login.bind(_server));
 			_server.use(_server.authenticated.bind(_server));
-			_server.get('/authenticated', function(req, res, next){
+			_server.get('/authenticated', function(req, res, next) {
 				res.end();
 			});
 			_server.errorHandler();
 
-			_server.app.set('dontPrintErrors', true)	
+			_server.app.set('dontPrintErrors', true)
 			request(server.app)
 				.post('/login')
 				.send({
@@ -779,8 +769,8 @@
 					password: 'password'
 				})
 				.expect(200)
-				.end(function(err, res){
-					if(err){
+				.end(function(err, res) {
+					if (err) {
 						return done(err)
 					}
 					var _cookie = res.headers['set-cookie'];
@@ -788,10 +778,9 @@
 						.get('/authenticated')
 						.set('cookie', _cookie)
 						.expect(200, done)
-							
+
 				})
 		});
-
 
 	});
 
@@ -816,7 +805,7 @@
 				.set('cookie', sessionCookie)
 				.expect(403, done)
 		});
-		
+
 		it('401 no user roles', function(done) {
 			request(server.app)
 				.get('/noRoles')
@@ -831,15 +820,15 @@
 				.expect(403, done)
 		})
 
-		it('wrapper denied', function(done){
+		it('wrapper denied', function(done) {
 			var testVal = 'denied'
 			server.get(
 				'/checkRolesWrapperDenied',
-				server.checkRolesWrapper.bind(server, ['roleC'], function(req, res, next){
+				server.checkRolesWrapper.bind(server, ['roleC'], function(req, res, next) {
 					testVal = 'allowed'
 					next();
 				}),
-				function(req, res, next){
+				function(req, res, next) {
 					res.end(testVal)
 				}
 			);
@@ -851,15 +840,15 @@
 
 		});
 
-		it('wrapper allowed', function(done){
+		it('wrapper allowed', function(done) {
 			var testVal = 'denied'
 			server.get(
 				'/checkRolesWrapperAllowed',
-				server.checkRolesWrapper.bind(server, ['roleA'], function(req, res, next){
+				server.checkRolesWrapper.bind(server, ['roleA'], function(req, res, next) {
 					testVal = 'allowed'
 					next();
 				}),
-				function(req, res, next){
+				function(req, res, next) {
 					res.end(testVal)
 				}
 			);
@@ -869,7 +858,7 @@
 				.expect(200)
 				.expect('allowed', done)
 
-		})		
+		})
 
 	})
 
@@ -883,7 +872,7 @@
 				.set('cookie', sessionCookie)
 				.expect(302)
 				.end(function(err, res) {
-					if(err){
+					if (err) {
 						return done(err);
 					}
 					headers = res.headers;
@@ -955,9 +944,9 @@
 				})
 				.expect(200)
 				.end(function(err, res) {
-					if(err){
+					if (err) {
 						return done(err);
-					}					
+					}
 					assert(res.headers['set-cookie'][0]);
 					assert(res.headers['set-cookie'][1]);
 
@@ -973,9 +962,9 @@
 				.set('cookie', rememberCookie)
 				.expect(200)
 				.end(function(err, res) {
-					if(err){
+					if (err) {
 						return done(err);
-					}					
+					}
 					assert.notEqual(res.headers['set-cookie'][0], rememberCookie);
 					assert.notEqual(res.headers['set-cookie'][1], sessionCookie);
 					rememberCookie = res.headers['set-cookie'][0];
@@ -996,9 +985,9 @@
 				})
 				.expect(200)
 				.end(function(err, res) {
-					if(err){
+					if (err) {
 						return done(err);
-					}					
+					}
 					// assert.notEqual(res.headers['set-cookie'][0], rememberCookie);
 					// assert.notEqual(res.headers['set-cookie'][1], sessionCookie);
 					// rememberCookie = res.headers['set-cookie'][0];
@@ -1033,7 +1022,7 @@
 
 		it('issueRememberMe error', function(done) {
 
-			_server.issueRememberMe = function(u, _done){	
+			_server.issueRememberMe = function(u, _done) {
 				_done('issueRemeberMe error')
 			};
 			_server.app.set('dontPrintErrors', true)
@@ -1047,7 +1036,6 @@
 				})
 				.expect(500, done)
 		});
-
 
 	})
 
@@ -1141,9 +1129,9 @@
 				.get('/mounted/test.txt')
 				.expect(200)
 				.end(function(err, res) {
-					if(err){
+					if (err) {
 						return done(err);
-					}					
+					}
 					request(_server.app)
 						.get('/test.txt')
 						.expect(404, done)
@@ -1160,16 +1148,16 @@
 				.get('/mounted/test.txt')
 				.expect(200)
 				.end(function(err, res) {
-					if(err){
+					if (err) {
 						return done(err);
-					}					
+					}
 					request(_server.app)
 						.get('/test2.txt')
 						.expect(200)
 						.end(function(err, res) {
-							if(err){
+							if (err) {
 								return done(err);
-							}							
+							}
 							request(_server.app)
 								.get('/mounted/template.jade')
 								.expect(200)
@@ -1180,408 +1168,517 @@
 
 	});
 
-	describe('logger', function(){
+	describe('logger', function() {
 
 		var _server = server.ExpressMiddlewareBundle();
 		var spyStdout = sinon.spy(process.stdout, 'write');
 
-		before(function(){
+		before(function() {
 
 			_server.addQueryAndBodyParser();
 			_server.addLogger();
 
-			_server.get('/500', function(req, res){
+			_server.get('/500', function(req, res) {
 				res.status(500)
 				res.end()
 			})
 
-			_server.get('/301', function(req, res){
+			_server.get('/301', function(req, res) {
 				res.status(301)
 				res.end()
 			})
 
-			_server.get('/log', function(req, res){
+			_server.get('/log', function(req, res) {
 				res.end()
 			})
-			_server.post('/log', function(req, res){
+			_server.post('/log', function(req, res) {
 				res.end()
-			})			
+			})
 		})
-		
-		it('get', function(done){
+
+		it('get', function(done) {
 			spyStdout.reset();
 			request(_server.app)
 				.get('/log')
 				.expect(200)
-				.end(function(err){
-					if(err){
+				.end(function(err) {
+					if (err) {
 						return done(err);
 					}
-					assert.equal(1,spyStdout.callCount)
+					assert.equal(1, spyStdout.callCount)
 					done();
 				})
 		})
-		it('get, noLog', function(done){
+		it('get, noLog', function(done) {
 			spyStdout.reset();
 			request(_server.app)
 				.get('/log')
-				.query({noLog: 1})
+				.query({
+					noLog: 1
+				})
 				.expect(200)
-				.end(function(err){
-					if(err){
+				.end(function(err) {
+					if (err) {
 						return done(err);
 					}
-					assert.equal(0,spyStdout.callCount)
+					assert.equal(0, spyStdout.callCount)
 					done();
 				})
 		})
 
-
-		it('post', function(done){
+		it('post', function(done) {
 			spyStdout.reset();
 			request(_server.app)
 				.post('/log')
 				.expect(200)
-				.end(function(err){
-					if(err){
+				.end(function(err) {
+					if (err) {
 						return done(err);
 					}
-					assert.equal(1,spyStdout.callCount)
+					assert.equal(1, spyStdout.callCount)
 					done();
 				})
 		});
 
-		it('301', function(done){
+		it('301', function(done) {
 			spyStdout.reset();
 			request(_server.app)
 				.get('/301')
 				.expect(301)
-				.end(function(err){
-					if(err){
+				.end(function(err) {
+					if (err) {
 						return done(err);
 					}
-					assert.equal(1,spyStdout.callCount)
+					assert.equal(1, spyStdout.callCount)
 					done();
 				});
 		});
 
-		it('500', function(done){
+		it('500', function(done) {
 			spyStdout.reset();
 			request(_server.app)
 				.get('/500')
 				.expect(500)
-				.end(function(err){
-					if(err){
+				.end(function(err) {
+					if (err) {
 						return done(err);
 					}
-					assert.equal(1,spyStdout.callCount)
+					assert.equal(1, spyStdout.callCount)
 					done();
 				});
 		});
 
-		it('404', function(done){
+		it('404', function(done) {
 			spyStdout.reset();
 			request(_server.app)
 				.get('/404')
 				.expect(404)
-				.end(function(err){
-					if(err){
+				.end(function(err) {
+					if (err) {
 						return done(err);
 					}
-					assert.equal(1,spyStdout.callCount)
+					assert.equal(1, spyStdout.callCount)
 					done();
 				});
-		});		
+		});
 
-		it('server.log', function(){
+		it('server.log', function() {
 			spyStdout.reset();
 			_server.log('log message')
-			assert.equal(1,spyStdout.callCount)
+			assert.equal(1, spyStdout.callCount)
 		})
 
-
 	})
-
 
 	describe('get/set', function() {
 		var _server;
-		beforeEach(function(){
+		beforeEach(function() {
 			_server = server.ExpressMiddlewareBundle();
 		})
-		
-		it('get redis', function(){
-			var r  = server.redis()
+
+		it('get redis', function() {
+			var r = server.redis()
 			assert(r._events)
 		})
-		it('get mysql', function(){
-			var r  = server.mysql()
+		it('get mysql', function() {
+			var r = server.mysql()
 			assert(r.query)
-		})		
-
-
-		it('redis client', function(){
-			_server.redis(fakeredis.createClient('test'))
-			var r  = _server.redis()
-			assert(r._events)			
 		})
 
-		it('redis config', function(done){
-			_server.redis({port: 65534, host:'127.0.0.1', options:{max_attempts: 1} })	
-			_server.redis().once('error', function(err){
+		it('redis client', function() {
+			_server.redis(fakeredis.createClient('test'))
+			var r = _server.redis()
+			assert(r._events)
+		})
+
+		it('redis config', function(done) {
+			_server.redis({
+				port: 65534,
+				host: '127.0.0.1',
+				options: {
+					max_attempts: 1
+				}
+			})
+			_server.redis().once('error', function(err) {
 				assert(err)
 				done();
 			});
-		})	
-
-		it('mysql client', function(){
-			_server.mysql(mysql)
-			assert(_server.mysql()._events)			
-		})		
-
-	
-
-		it('mysql config', function(done){
-			_server.mysql({port: 65534, host:'127.0.0.1'})	
-			var r  = _server.mysql()
-			assert(r._events)						
-			done();
-		})				
-
-		it('rabbit get', function(){
-			_server._rabbit = 1;
-			assert(_server.rabbit() );
 		})
 
-		it('rabbit set', function(done){
+		it('mysql client', function() {
+			_server.mysql(mysql)
+			assert(_server.mysql()._events)
+		})
 
-				_server.rabbit({
-					name: 'test',
-					server: 'host',
-					port: '1',
-					user: 'u',
-					pass: 'p',
-					// timeout: 100,
-				    replyQueue: {
-				        name: 'replies',
-				        subscribe: 'true',
-				        durable: true
-				    },					
-				}, function(){
-					_server._wascally.once('test.connection.failed', function(err){
-						assert.equal('No endpoints could be reached',err)
-						done();	
-					});
-					
-				});
-		});
+		it('mysql config', function(done) {
+			_server.mysql({
+				port: 65534,
+				host: '127.0.0.1'
+			})
+			var r = _server.mysql()
+			assert(r._events)
+			done();
+		})
 
+		it('rabbit get', function() {
+			_server._rabbit = 1;
+			assert(_server.rabbit());
+		})
 
-		it('rabbit set 2', function(){
+		it('rabbit set', function(done) {
 
-				_server.rabbit({connection: {
-					name: 'test',
-					server: 'host',
-					port: '1',
-					user: 'u',
-					pass: 'p',
-					// timeout: 100,
-				    replyQueue: {
-				        name: 'replies',
-				        subscribe: 'true',
-				        durable: true
-				    },					
-				}});
-				assert(_server.rabbit().send);
-		});
-
-
-	})
-
-
-describe('rabbit', function(){
-
-
-	beforeEach(function(done){
-				server.rabbit({
-					name: 'test',
-					server: 'host',
-					port: '1',
-					user: 'u',
-					pass: 'p',
-					// // timeout: 100,
-				 //    replyQueue: {
-				 //        name: 'replies',
-				 //        subscribe: 'true',
-				 //        durable: true
-				 //    },					
-				}, function(){
-					server._wascally.once('test.connection.failed', function(err){
-						// assert.equal('No endpoints could be reached',err)
-						done();	
-					});
-					
-				});		
-	})
-
-	it('rabbitRequest', function(done) {
-		var stub = sinon.stub(Rabbus, 'Requester', function(r, config) {
-			assert.equal('req-res.version-exchange' ,config.exchange)
-			assert.equal('version.queue' ,config.routingKey)
-			assert.equal('req-res.version.queue' ,config.messageType)
-			return {
-				request: function(msg, cb) {
-					assert.equal(msg.test, true)
-					assert(typeof cb === 'function')
-					cb(null, {response: true})
+			_server.rabbit({
+				name: 'test',
+				server: 'host',
+				port: '1',
+				user: 'u',
+				pass: 'p',
+				// timeout: 100,
+				replyQueue: {
+					name: 'replies',
+					subscribe: 'true',
+					durable: true
 				},
-				exchange: 'test-exchange'
-			}
+			}, function() {
+				_server._wascally.once('test.connection.failed', function(err) {
+					assert.equal('No endpoints could be reached', err)
+					done();
+				});
+
+			});
 		});
 
-		server.rabbitRequest('version', 'queue', {
-			test: true
-		}, function(err, response) {
-			assert.equal(response.response, true);
+		it('rabbit set 2', function() {
+
+			_server.rabbit({
+				connection: {
+					name: 'test',
+					server: 'host',
+					port: '1',
+					user: 'u',
+					pass: 'p',
+					// timeout: 100,
+					replyQueue: {
+						name: 'replies',
+						subscribe: 'true',
+						durable: true
+					},
+				}
+			});
+			assert(_server.rabbit().send);
+		});
+
+	})
+
+	describe('rabbit', function() {
+
+		beforeEach(function(done) {
+			// server._wascally = {
+			// 	addExchange: function(){}
+			// }
+
+			server.rabbit({
+				name: 'test',
+				server: 'host',
+				port: '1',
+				user: 'u',
+				pass: 'p',
+				// // timeout: 100,
+				//    replyQueue: {
+				//        name: 'replies',
+				//        subscribe: 'true',
+				//        durable: true
+				//    },					
+			}, function() {
+				// server._wascally.once('test.connection.failed', function(err){
+				// 	// assert.equal('No endpoints could be reached',err)
+				server._wascally.connections = {
+					'default': {
+						createExchange: function() {},
+						createQueue: function() {},
+						createBinding: function() {
+							var deferred = Q.defer();
+							setTimeout(function() {
+								deferred.resolve();
+							}, 5)
+							return deferred.promise;
+						},
+						channels: {
+							'queue:send-rec.version.queue': {
+								subscribe: function() {
+									// 	console.info('subscribe')
+								}
+							},
+							'queue:req-res.version.queue': {
+								subscribe: function() {}
+							}
+						}
+					}
+				}
+
+				server._wascally.bindQueue = function() {
+					var deferred = Q.defer();
+					setTimeout(function() {
+						deferred.resolve();
+					}, 5)
+					return deferred.promise;
+				}
+
+				server._wascally.addExchange = function() {
+					var deferred = Q.defer();
+					setTimeout(function() {
+						deferred.resolve();
+					}, 5)
+					return deferred.promise;
+				}
+				done();
+				// });
+
+			});
+		})
+
+		it('rabbitRequest inherits', function(done) {
+
+			var _server = server.ExpressMiddlewareBundle();
+			_server.rabbit({
+				name: 'test',
+				server: 'host',
+				port: '1',
+				user: 'u',
+				pass: 'p',
+			});
+
+			_server._wascally.request = function(ex, config) {
+				assert.equal('req-res.version-exchange', ex)
+				assert.equal('version.queue', config.routingKey)
+				assert.equal('req-res.version.queue', config.type)
+				assert.deepEqual({
+					test: true
+				}, config.body)
+				done();
+			};
+
+			_server.rabbitRequest('version', 'queue', {
+				test: true
+			})
+
+		});
+
+		it('rabbitRequest', function(done) {
+			var stub = sinon.stub(Rabbus, 'Requester', function(r, config) {
+				assert.equal('req-res.version-exchange', config.exchange)
+				assert.equal('version.queue', config.routingKey)
+				assert.equal('req-res.version.queue', config.messageType)
+				return {
+					request: function(msg, cb) {
+						console.info('request')
+						assert.equal(msg.test, true)
+						assert(typeof cb === 'function')
+						cb(null, {
+							response: true
+						})
+					},
+					exchange: 'test-exchange'
+				}
+			});
+
 			server.rabbitRequest('version', 'queue', {
 				test: true
 			}, function(err, response) {
 				assert.equal(response.response, true);
-				sinon.assert.calledOnce(stub)
-				Rabbus.Requester.restore();
-				done();
+				server.rabbitRequest('version', 'queue', {
+					test: true
+				}, function(err, response) {
+					assert.equal(response.response, true);
+					sinon.assert.calledOnce(stub)
+					Rabbus.Requester.restore();
+					done();
+				})
+
 			})
 
-		})
-
-	});
-
-	it('rabbitRespond', function(done) {	
-		var stub = sinon.stub(Rabbus, 'Responder', function(r, config) {
-			assert.equal('req-res.version-exchange' ,config.exchange)
-			assert.equal('version.queue' ,config.routingKey)
-			assert.equal('req-res.version.queue' ,config.messageType)
-			assert.deepEqual({ name: 'req-res.version.queue', limit: 2 }, config.queue)
-
-			return {
-				handle: function(cb) {
-					cb(null, {response: true})
-				},
-				exchange: 'test-exchange'
-			}
-		});		
-		server.rabbitRespond('version', 'queue', 2,function(err, response){
-			assert.equal(response.response, true);
-			sinon.assert.calledOnce(stub)
-			Rabbus.Responder.restore();
-			done();
 		});
 
-	});
-	it('rabbitRespond non number limit', function(done) {	
-		var stub = sinon.stub(Rabbus, 'Responder', function(r, config) {
-			assert.equal('req-res.version-exchange' ,config.exchange)
-			assert.equal('version.queue' ,config.routingKey)
-			assert.equal('req-res.version.queue' ,config.messageType)
-			assert.deepEqual({ name: 'req-res.version.queue', limit: 1 }, config.queue)
+		it('rabbitRespond inherits', function(done) {
 
-			return {
-				handle: function(cb) {
-					cb(null, {response: true})
-				},
-				exchange: 'test-exchange'
+			function handler(msg, _done) {
+				assert.equal(spy.callCount, 1);
+				assert.deepEqual(msg, {
+					incoming: true
+				})
+				Rabbus.Responder.restore();
+				done();
 			}
-		});		
-		server.rabbitRespond('version', 'queue', 'string',function(err, response){
-			assert.equal(response.response, true);
-			sinon.assert.calledOnce(stub)
-			Rabbus.Responder.restore();
-			done();
+
+			var stub = sinon.stub(
+				server._wascally.connections.default.channels['queue:req-res.version.queue'],
+				'subscribe',
+				function() {
+					handler({
+						incoming: true
+					}, function() {})
+				});
+
+			var spy = sinon.spy(Rabbus, 'Responder');
+			server.rabbitRespond('version', 'queue', 2, handler);
+		});
+		it('rabbitRespond', function(done) {
+			var stub = sinon.stub(Rabbus, 'Responder', function(r, config) {
+				assert.equal('req-res.version-exchange', config.exchange)
+				assert.equal('version.queue', config.routingKey)
+				assert.equal('req-res.version.queue', config.messageType)
+				assert.deepEqual({
+					name: 'req-res.version.queue',
+					limit: 2
+				}, config.queue)
+
+				return {
+					handle: function(cb) {
+						cb(null, {
+							response: true
+						})
+					},
+					exchange: 'test-exchange'
+				}
+			});
+			server.rabbitRespond('version', 'queue', 2, function(err, response) {
+				assert.equal(response.response, true);
+				sinon.assert.calledOnce(stub)
+				Rabbus.Responder.restore();
+				done();
+			});
+
+		});
+		it('rabbitRespond non number limit', function(done) {
+			var stub = sinon.stub(Rabbus, 'Responder', function(r, config) {
+				assert.equal('req-res.version-exchange', config.exchange)
+				assert.equal('version.queue', config.routingKey)
+				assert.equal('req-res.version.queue', config.messageType)
+				assert.deepEqual({
+					name: 'req-res.version.queue',
+					limit: 1
+				}, config.queue)
+
+				return {
+					handle: function(cb) {
+						cb(null, {
+							response: true
+						})
+					},
+					exchange: 'test-exchange'
+				}
+			});
+			server.rabbitRespond('version', 'queue', 'string', function(err, response) {
+				assert.equal(response.response, true);
+				sinon.assert.calledOnce(stub)
+				Rabbus.Responder.restore();
+				done();
+			});
+
 		});
 
+		it('rabbitSend inherits', function(done) {
+			var stub = sinon.stub(server._wascally, 'publish', function(ex, config) {
+				assert.equal('send-rec.version-exchange', ex)
+				assert.equal('version.queue', config.routingKey)
+				assert.equal('send-rec.version.queue', config.type)
+				assert.deepEqual({
+					test: true
+				}, config.body)
+				var deferred = Q.defer();
+				setTimeout(function() {
+					deferred.resolve();
+				}, 5)
+				return deferred.promise;
+			});
 
-	});
+			var spy = sinon.spy(Rabbus, 'Sender');
 
-
-	it('rabbitSend', function(done) {
-		var stub = sinon.stub(Rabbus, 'Sender', function(r, config) {
-			// console.info(arguments)
-			assert.equal('send-rec.version-exchange' ,config.exchange)
-			assert.equal('version.queue' ,config.routingKey)
-			assert.equal('send-rec.version.queue' ,config.messageType)
-			return {
-				send: function(msg, cb) {
-					assert.equal(msg.test, true)
-					assert(typeof cb === 'function')
-					cb(null)
-				},
-				exchange: 'test-exchange'
-			}
-		});
-
-		server.rabbitSend('version', 'queue', {
-			test: true
-		}, function(err, response) {
-			assert(!err);
-			// done()
-			// assert.equal(response.sent, true);
 			server.rabbitSend('version', 'queue', {
 				test: true
-			}, function(err) {
-				assert(!err)
-				// assert.equal(response.sent, true);
-				sinon.assert.calledOnce(stub)
-				Rabbus.Sender.restore();
-				done();
+			}, function(err, response) {
+				assert(!err);
+				server.rabbitSend('version', 'queue', {
+					test: true
+				}, function(err) {
+					assert(!err)
+					sinon.assert.calledTwice(stub)
+					assert.equal(spy.callCount, 1)
+					Rabbus.Sender.restore();
+					server._wascally.publish.restore();
+					done();
+				})
+
 			})
-
-		})
-
-	});	
-
-
-	it('rabbitReceive', function(done) {	
-		var stub = sinon.stub(Rabbus, 'Receiver', function(r, config) {
-			assert.equal('send-rec.version-exchange' ,config.exchange)
-			assert.equal('version.queue' ,config.routingKey)
-			assert.equal('send-rec.version.queue' ,config.messageType)
-			assert.deepEqual({ name: 'send-rec.version.queue', limit: 2 }, config.queue)
-
-			return {
-				receive: function(cb) {
-					cb(null)
-				},
-				exchange: 'test-exchange'
-			}
-		});		
-		server.rabbitReceive('version', 'queue', 2,function(err, _done){
-			assert(!err)
-			sinon.assert.calledOnce(stub)
-			Rabbus.Receiver.restore();
-			done();
 		});
 
-	});
+		it('rabbitReceive inherits', function(done) {
 
-	it('rabbitReceive non number limit', function(done) {	
-		var stub = sinon.stub(Rabbus, 'Receiver', function(r, config) {
-			assert.deepEqual({ name: 'send-rec.version.queue', limit: 1 }, config.queue)
-			return {
-				receive: function(cb) {
-					cb(null)
-				},
-				exchange: 'test-exchange'
+			function handler(msg, _done) {
+				assert.equal(spy.callCount, 1);
+				assert.deepEqual(msg, {
+					incoming: true
+				})
+				Rabbus.Receiver.restore();
+				done();
 			}
-		});		
-		server.rabbitReceive('version', 'queue', 'string',function(err, _done){
-			assert(!err)
-			sinon.assert.calledOnce(stub)
-			Rabbus.Receiver.restore();
-			done();
+
+			var stub = sinon.stub(
+				server._wascally.connections.default.channels['queue:send-rec.version.queue'],
+				'subscribe',
+				function() {
+					handler({
+						incoming: true
+					}, function() {})
+				});
+
+			var spy = sinon.spy(Rabbus, 'Receiver');
+			server.rabbitReceive('version', 'queue', 2, handler);
 		});
 
-	});	
+		it('rabbitReceive non number limit', function(done) {
+			var stub = sinon.stub(Rabbus, 'Receiver', function(r, config) {
+				assert.deepEqual({
+					name: 'send-rec.version.queue',
+					limit: 1
+				}, config.queue)
+				return {
+					receive: function(cb) {
+						cb(null)
+					},
+					exchange: 'test-exchange'
+				}
+			});
+			server.rabbitReceive('version', 'queue', 'string', function(err, _done) {
+				assert(!err)
+				sinon.assert.calledOnce(stub)
+				Rabbus.Receiver.restore();
+				done();
+			});
 
-})
+		});
+
+	})
 
 	function routes(_localServer) {
 
@@ -1596,8 +1693,6 @@ describe('rabbit', function(){
 		// 	return cb(null, user)
 		// }
 		// 
-
-		
 
 		_localServer.authenticationLogin(function(req, u, p, cb) {
 			if (u === 'user' && p === 'password') {
@@ -1696,11 +1791,11 @@ describe('rabbit', function(){
 			function(req, res) {
 				res.end()
 			}
-		)	
+		)
 
 		_localServer.get(
 			'/noRoles',
-			function(req, res, next){
+			function(req, res, next) {
 				delete req.user.roles
 				next();
 			},
@@ -1708,10 +1803,10 @@ describe('rabbit', function(){
 			function(req, res) {
 				res.end()
 			}
-		)			
+		)
 		_localServer.get(
 			'/rolesNoUser',
-			function(req, res, next){
+			function(req, res, next) {
 				delete req.user
 				next();
 			},
@@ -1719,7 +1814,7 @@ describe('rabbit', function(){
 			function(req, res) {
 				res.end()
 			}
-		)	
+		)
 
 	}
 
@@ -1855,9 +1950,6 @@ describe('rabbit', function(){
 				) {
 					return cb('error')
 				}
-
-
-
 
 				cb('unknow query')
 			}

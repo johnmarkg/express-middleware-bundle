@@ -18,11 +18,6 @@
 	var util = require("util");
 	var Rabbus = require("rabbus");
 
-
-
-		
-
-
 	function Scaff() {
 
 		// dont want cached object
@@ -159,7 +154,7 @@
 			messageType: prefix + version + '.' + label
 		});
 	}
-	util.inherits(Requester, Rabbus.Sender);
+	util.inherits(Sender, Rabbus.Sender);
 
 	function Responder(rabbus, version, label, limit) {
 		var prefix = 'req-res.';
@@ -224,9 +219,11 @@
 				label
 			);
 		}
-
+// console.info(this.senders)
 		this.senders[key].send(msg, cb);
 	}
+
+
 
 
 	//----------------------------------------
