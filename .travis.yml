@@ -1,5 +1,5 @@
 language: node_js
 node_js:
   - "0.12"
-  - "iojs"
+  - "iojs-2.5"
 after_success: 'npm run coveralls'
