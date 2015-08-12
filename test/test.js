@@ -1341,7 +1341,7 @@
 		})
 
 		it('rabbit get', function() {
-			_server._rabbit = 1;
+			_server._wascally = 1;
 			assert(_server.rabbit());
 		})
 
@@ -1368,7 +1368,7 @@
 			});
 		});
 
-		it('rabbit set 2', function() {
+		it('rabbit set 2', function(done) {
 
 			_server.rabbit({
 				connection: {
@@ -1384,8 +1384,11 @@
 						durable: true
 					},
 				}
+			}, function(){
+				assert(_server.rabbit().addQueue);	
+				done()
 			});
-			assert(_server.rabbit().send);
+			
 		});
 
 	})
@@ -1403,6 +1406,7 @@
 				port: '1',
 				user: 'u',
 				pass: 'p',
+				prefix: 'version'
 				// // timeout: 100,
 				//    replyQueue: {
 				//        name: 'replies',
@@ -1431,7 +1435,8 @@
 							},
 							'queue:req-res.version.queue': {
 								subscribe: function() {}
-							}
+							}						
+
 						}
 					}
 				}
@@ -1465,20 +1470,20 @@
 				server: 'host',
 				port: '1',
 				user: 'u',
-				pass: 'p',
+				pass: 'p'
 			});
 
 			_server._wascally.request = function(ex, config) {
-				assert.equal('req-res.version-exchange', ex)
-				assert.equal('version.queue', config.routingKey)
-				assert.equal('req-res.version.queue', config.type)
+				assert.equal('req-res.default-exchange', ex)
+				assert.equal('default.queue', config.routingKey)
+				assert.equal('req-res.default.queue', config.type)
 				assert.deepEqual({
 					test: true
 				}, config.body)
 				done();
 			};
 
-			_server.rabbitRequest('version', 'queue', {
+			_server.rabbitRequest( 'queue', {
 				test: true
 			})
 
@@ -1486,12 +1491,16 @@
 
 		it('rabbitRequest', function(done) {
 			var stub = sinon.stub(Rabbus, 'Requester', function(r, config) {
-				assert.equal('req-res.version-exchange', config.exchange)
-				assert.equal('version.queue', config.routingKey)
-				assert.equal('req-res.version.queue', config.messageType)
+				var p = 'version'
+				// if(stub.callCount > 1){
+				// 	p = 'default';
+				// }
+				assert.equal('req-res.' + p + '-exchange', config.exchange)
+				assert.equal(p + '.queue', config.routingKey)
+				assert.equal('req-res.' + p + '.queue', config.messageType)
 				return {
 					request: function(msg, cb) {
-						console.info('request')
+						// console.info('request')
 						assert.equal(msg.test, true)
 						assert(typeof cb === 'function')
 						cb(null, {
@@ -1502,16 +1511,22 @@
 				}
 			});
 
-			server.rabbitRequest('version', 'queue', {
+			server.rabbitRequest( 'queue', {
 				test: true
 			}, function(err, response) {
+
 				assert.equal(response.response, true);
-				server.rabbitRequest('version', 'queue', {
+
+				// delete server._rabbitConfig.connection.prefix				
+
+				server.rabbitRequest('queue', {
 					test: true
 				}, function(err, response) {
+					console.info(arguments);
 					assert.equal(response.response, true);
 					sinon.assert.calledOnce(stub)
 					Rabbus.Requester.restore();
+					// server._rabbitConfig.connection.prefix = 'version'
 					done();
 				})
 
@@ -1540,15 +1555,16 @@
 				});
 
 			var spy = sinon.spy(Rabbus, 'Responder');
-			server.rabbitRespond('version', 'queue', 2, handler);
+			server.rabbitRespond('queue', 2, handler);
 		});
 		it('rabbitRespond', function(done) {
 			var stub = sinon.stub(Rabbus, 'Responder', function(r, config) {
-				assert.equal('req-res.version-exchange', config.exchange)
-				assert.equal('version.queue', config.routingKey)
-				assert.equal('req-res.version.queue', config.messageType)
+				var p = 'default';
+				assert.equal('req-res.' + p + '-exchange', config.exchange)
+				assert.equal(p + '.queue', config.routingKey)
+				assert.equal('req-res.'  + p +'.queue', config.messageType)
 				assert.deepEqual({
-					name: 'req-res.version.queue',
+					name: 'req-res.' + p + '.queue',
 					limit: 2
 				}, config.queue)
 
@@ -1561,10 +1577,14 @@
 					exchange: 'test-exchange'
 				}
 			});
-			server.rabbitRespond('version', 'queue', 2, function(err, response) {
+
+			delete server._rabbitConfig.connection.prefix;
+
+			server.rabbitRespond( 'queue', 2, function(err, response) {
 				assert.equal(response.response, true);
 				sinon.assert.calledOnce(stub)
 				Rabbus.Responder.restore();
+				server._rabbitConfig.connection.prefix = 'version'
 				done();
 			});
 
@@ -1588,7 +1608,7 @@
 					exchange: 'test-exchange'
 				}
 			});
-			server.rabbitRespond('version', 'queue', 'string', function(err, response) {
+			server.rabbitRespond('queue', 'string', function(err, response) {
 				assert.equal(response.response, true);
 				sinon.assert.calledOnce(stub)
 				Rabbus.Responder.restore();
@@ -1597,40 +1617,107 @@
 
 		});
 
+
+		it('rabbitSend version', function(done) {
+
+			var _server = server.ExpressMiddlewareBundle();
+			_server.rabbit({
+				name: 'test',
+				server: 'host',
+				port: '1',
+				user: 'u',
+				pass: 'p'
+			});
+
+			var stub = sinon.stub(_server._wascally, 'publish', function(ex, config) {
+				var p = 'default'
+				assert.equal('send-rec.' + p +'-exchange', ex)
+				_server._wascally.publish.restore();
+				done();
+			});
+
+			_server.rabbitSend( 'queue', {
+				test: true
+			});			
+		});
+
 		it('rabbitSend inherits', function(done) {
+
 			var stub = sinon.stub(server._wascally, 'publish', function(ex, config) {
-				assert.equal('send-rec.version-exchange', ex)
-				assert.equal('version.queue', config.routingKey)
-				assert.equal('send-rec.version.queue', config.type)
+				var p = 'version'
+				// if(stub.callCount > 1){
+				// 	p = 'default';
+				// }
+				assert.equal('send-rec.' + p +'-exchange', ex)
+				assert.equal( p +'.queue', config.routingKey)
+				assert.equal('send-rec.' + p + '.queue', config.type)
 				assert.deepEqual({
 					test: true
 				}, config.body)
 				var deferred = Q.defer();
 				setTimeout(function() {
+					console.info('resolve')
 					deferred.resolve();
 				}, 5)
 				return deferred.promise;
 			});
 
+
 			var spy = sinon.spy(Rabbus, 'Sender');
 
-			server.rabbitSend('version', 'queue', {
+			
+
+			server.rabbitSend( 'queue', {
 				test: true
 			}, function(err, response) {
 				assert(!err);
-				server.rabbitSend('version', 'queue', {
+	
+				// delete server._rabbitConfig.connection.prefix
+
+				server.rabbitSend('queue', {
 					test: true
 				}, function(err) {
 					assert(!err)
 					sinon.assert.calledTwice(stub)
+					// console.info('spy.callCount: ' + spy.callCount)
 					assert.equal(spy.callCount, 1)
 					Rabbus.Sender.restore();
 					server._wascally.publish.restore();
+					// server._rabbitConfig.connection.prefix = 'version'
 					done();
 				})
 
 			})
 		});
+
+
+		it('rabbitReceive default version', function(done) {
+
+			var _server = server.ExpressMiddlewareBundle();
+			_server.rabbit({
+				name: 'test',
+				server: 'host',
+				port: '1',
+				user: 'u',
+				pass: 'p'
+			});
+			var stub = sinon.stub(Rabbus, 'Receiver', function(r, config) {
+				assert.deepEqual({
+					name: 'send-rec.default.queue',
+					limit: 1
+				}, config.queue)
+
+				Rabbus.Receiver.restore();
+				done();
+
+				return {
+					receive: function() {},
+				}
+
+			});
+			_server.rabbitReceive('queue', 'string');
+		});
+
 
 		it('rabbitReceive inherits', function(done) {
 
@@ -1653,7 +1740,7 @@
 				});
 
 			var spy = sinon.spy(Rabbus, 'Receiver');
-			server.rabbitReceive('version', 'queue', 2, handler);
+			server.rabbitReceive('queue', 2, handler);
 		});
 
 		it('rabbitReceive non number limit', function(done) {
@@ -1669,7 +1756,7 @@
 					exchange: 'test-exchange'
 				}
 			});
-			server.rabbitReceive('version', 'queue', 'string', function(err, _done) {
+			server.rabbitReceive('queue', 'string', function(err, _done) {
 				assert(!err)
 				sinon.assert.calledOnce(stub)
 				Rabbus.Receiver.restore();

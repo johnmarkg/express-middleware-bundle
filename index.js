@@ -93,7 +93,7 @@
 
 	Scaff.prototype.rabbit = function(wascallyConfig, cb) {
 		if(typeof wascallyConfig === 'undefined'){
-			return this._rabbit;	
+			return this._wascally;	
 		}
 
 		var config = {};
@@ -108,8 +108,12 @@
 		else{
 			config = wascallyConfig	
 		}
+
+		// var prefix = config.connection.prefix || 'default';
+
+		this._rabbitConfig = config;
 	    this._wascally = require( 'wascally' );
-	    _rabbit = require( 'lapin' )( this._wascally );
+	    // _rabbit = require( 'lapin' )( this._wascally );
 
 	    this._wascally.configure(config).done(function(){
 
@@ -118,7 +122,7 @@
 	    	}
 	    });
 
-		this._rabbit = _rabbit;
+		// this._rabbit = _rabbit;
 		return this;
 	}
 
@@ -182,11 +186,13 @@
 	util.inherits(Requester, Rabbus.Requester);
 
 
-	Scaff.prototype.rabbitRespond = function(version, queue, limit, handler){
+	Scaff.prototype.rabbitRespond = function(queue, limit, handler){
+		var version = this._rabbitConfig.connection.prefix || 'default'
 		var responder = new Responder(this._wascally, version, queue, limit);
 		responder.handle(handler);		
 	}
-	Scaff.prototype.rabbitRequest = function(version, label, msg, cb){
+	Scaff.prototype.rabbitRequest = function(label, msg, cb){
+		var version = this._rabbitConfig.connection.prefix || 'default'
 		if(!this.requesters){
 			this.requesters = {}
 		}
@@ -203,11 +209,13 @@
 	}
 
 
-	Scaff.prototype.rabbitReceive = function(version, queue, limit, handler){
+	Scaff.prototype.rabbitReceive = function(queue, limit, handler){
+		var version = this._rabbitConfig.connection.prefix || 'default'
 		var receiver = new Receiver(this._wascally, version, queue, limit);
 		receiver.receive(handler);		
 	}
-	Scaff.prototype.rabbitSend = function(version, label, msg, cb){
+	Scaff.prototype.rabbitSend = function(label, msg, cb){
+		var version = this._rabbitConfig.connection.prefix || 'default'
 		if(!this.senders){
 			this.senders = {}
 		}

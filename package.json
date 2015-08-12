@@ -1,6 +1,6 @@
 {
   "name": "express-middleware-bundle",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "express with auth and sessions bundled in",
   "main": "express-middlelware-bundle.js",
   "repository": "https://github.com/johnmarkg/express-middleware-bundle",
@@ -24,7 +24,6 @@
     "express": "4.13.3",
     "express-session": "^1.11.3",
     "jade": "^1.11.0",
-    "lapin": "4.3.0",
     "morgan": "^1.6.1",
     "mysql": "^2.8.0",
     "passport": "^0.2.2",
