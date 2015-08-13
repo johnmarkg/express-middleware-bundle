@@ -8,7 +8,6 @@
 	var redis = require('redis');
 	var RedisStore = require('connect-redis')(require('express-session'));
 
-	var bcrypt = require('bcrypt');
 	var Passport = require('passport').Passport
 	var LocalStrategy = require('passport-local').Strategy;
 	var LocalAPIKeyStrategy = require('passport-localapikey').Strategy;

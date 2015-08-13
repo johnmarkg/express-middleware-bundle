@@ -1,6 +1,6 @@
 {
   "name": "express-middleware-bundle",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "express with auth and sessions bundled in",
   "main": "express-middlelware-bundle.js",
   "repository": "https://github.com/johnmarkg/express-middleware-bundle",
@@ -15,7 +15,6 @@
   "author": "Mark Garner",
   "license": "ISC",
   "dependencies": {
-    "bcrypt": "0.8.4",
     "body-parser": "1.13.3",
     "compression": "1.5.2",
     "connect-redis": "2.4.1",
