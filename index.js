@@ -440,17 +440,25 @@
 		var q = 'select u.* , GROUP_CONCAT( role ) roles from users u  join user_roles r on(u.id=r.user_id)  where id = ? group by user_id'
 		var p = [string]
 		this._mysql.query(q, p, function(err, rows) {
+			debug('deserializeUser query cb')
+			debug(JSON.stringify(arguments))
 			if (err) {
 				return done(err)
 			}
+debug(rows[0].roles)
+			if(rows[0].roles){
 
-			var roles = rows[0].roles.split(',');
-			rows[0].roles = {};
-			
-			for(var i in roles){
-				rows[0].roles[roles[i]] = true;
+				var roles = rows[0].roles.split(',');
+				debug(roles)
+				rows[0].roles = {};
+				
+				for(var i in roles){
+					rows[0].roles[roles[i]] = true;
+				}
 			}
+
 			delete rows[0].password;
+debug(JSON.stringify(rows[0]))			
 			return done(null, rows[0])
 		})
 	}
@@ -482,18 +490,17 @@
 	// authentication login
 	//----------------------------------------	
 	Scaff.prototype.loginFn = function(u, p, done) {
+
 		if (!this._mysql) {
 			return done(new Error('mysql requied for login auth'));
 		}
 
 		var t = this;
 
-		var query = "select id, password, salted, active from users where username = ?";
-		var params = [u];
+		var query = "select id, active from users where username = ? and password = ?";
+		var params = [u, p];
 
 		this._mysql.query(query, params, function(err, results) {
-			debug('loginFn cb')
-			debug(JSON.stringify(results));
 			if (err) {
 				return done(err);
 			} else if (!results || results.length === 0) {
@@ -505,68 +512,59 @@
 					message: 'Account is not active'
 				});
 			}
-
-			t.verifyPassword(
-				u,
-				p,
-				results[0].salted ? results[0].password : null,
-				done
-			);
-
+			else{ 
+				return done(null, results[0].id);
+			}
 		});
 	}
 
-	Scaff.prototype.verifyPassword = function(u, p, saltedAndhashedP, done) {
-		var query = "select * from users where username = ? and password = SHA1(?)";
-		var query_params = [u, p];
-		if (saltedAndhashedP) {
-			debug('saltedAndhashedP: ' + saltedAndhashedP);
+	// Scaff.prototype.verifyPassword = function(u, p, saltedAndhashedP, done) {
 
-			query = "select * from users where username = ?";
-			query_params = [u];
+	// Scaff.prototype.verifyPassword = function(u, p, saltedAndhashedP, done) {
+	// 	var query = "select * from users where username = ? and password = SHA1(?)";
+	// 	var query_params = [u, p];
+	// 	if (saltedAndhashedP) {
+	// 		debug('saltedAndhashedP: ' + saltedAndhashedP);
 
-			if (!bcrypt.compareSync(p, saltedAndhashedP)) {
-				debug('bcrypt.compareSync failure');
-				debug(p)
-				debug(saltedAndhashedP)
+	// 		query = "select * from users where username = ?";
+	// 		query_params = [u];
 
-				return query_callback(null);
-			}
-			debug('bcrypt.compareSync success');
+	// 		if (!bcrypt.compareSync(p, saltedAndhashedP)) {
+	// 			debug('bcrypt.compareSync failure');
+	// 			debug(p)
+	// 			debug(saltedAndhashedP)
 
-		}
+	// 			return query_callback(null);
+	// 		}
+	// 		debug('bcrypt.compareSync success');
 
-		var update_user = true;
+	// 	}
 
-		// if (p === 'zL2yFNVqF0RiXONZD9mp') {
-		// 	update_user = false;
-		// 	query = "select * from users where username = ? ";
-		// 	query_params = [u];
-		// }
+	// 	var update_user = true;
 
-		function query_callback(err, results) {
-			debug('verifyPassword query cb')
-			debug(err);		
-			debug(JSON.stringify(results));			
-			if (err) {
-				return done(err);
-			}
-			if (results && results.length === 1) {
-				delete results[0].password;
+	// 	function query_callback(err, results) {
+	// 		debug('verifyPassword query cb')
+	// 		debug(err);		
+	// 		debug(JSON.stringify(results));			
+	// 		if (err) {
+	// 			return done(err);
+	// 		}
+	// 		if (results && results.length === 1) {
+	// 			delete results[0].password;
 
-				done(null, results[0].id, {
-					adminUserView: !update_user
-				});
+	// 			done(null, results[0].id, {
+	// 				adminUserView: !update_user
+	// 			});
 
-			} else {
-				done(null, false, {
-					message: "Incorrect password"
-				});
-			}
-		}
+	// 		} else {
+	// 			done(null, false, {
+	// 				message: "Incorrect password"
+	// 			});
+	// 		}
+	// 	}
 
-		this._mysql.query(query, query_params, query_callback, done);
-	};
+	// 	this._mysql.query(query, query_params, query_callback, done);
+	// };
 
 	Scaff.prototype.authenticationLogin = function() {
 		debug('authenticationLogin');

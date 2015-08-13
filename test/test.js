@@ -40,10 +40,16 @@
 	});
 
 	describe('errors', function() {
+		var queryStub;
 		var _server;
 		beforeEach(function() {
 			_server = server.ExpressMiddlewareBundle();
 			_server.set('dontPrintErrors', true)
+
+			if(mysql.query.restore){
+				mysql.query.restore()
+			}
+			queryStub = sinon.stub(mysql, 'query')			
 		});
 
 		it('need a port', function() {
@@ -83,7 +89,7 @@
 		});
 
 		it('req.login error', function(done) {
-
+			queryStub.callsArgWith(2,null,[{id: 1, active: 1}])
 			_server.authenticationLogin()
 			_server.addRedisSessions({
 				client: fakeredis.createClient()
@@ -189,14 +195,15 @@
 			}, 'mysql client required')
 		})
 
-		it('verifyPassword err', function(done) {
-			server.verifyPassword(1, 2, null, function(err) {
-				assert(err)
-				done();
-			})
-		})
+		// it('verifyPassword err', function(done) {
+		// 	server.verifyPassword(1, 2, null, function(err) {
+		// 		assert(err)
+		// 		done();
+		// 	})
+		// })
 
 		it('deserializeUser err', function(done) {
+			queryStub.callsArgWith(2, 'queryerror');
 			server.deserializeUser(-1, function(err) {
 				assert(err)
 				done();
@@ -251,9 +258,7 @@
 		describe('shutdown', function() {
 
 			var _server2 = server.ExpressMiddlewareBundle()
-				// _server2.addLogger();
 			_server2.app.get('/slow/:ms', function(req, res) {
-				// console.info(req.params.ms)
 
 				setTimeout(function() {
 					return res.end()
@@ -474,6 +479,13 @@
 	});
 
 	describe('authentication', function() {
+		var queryStub;
+		beforeEach(function(){
+			if(mysql.query.restore){
+				mysql.query.restore()
+			}
+			queryStub = sinon.stub(mysql, 'query')
+		})
 		it('not yet', function(done) {
 			request(server.app)
 				.get('/authenticated')
@@ -505,6 +517,9 @@
 		});
 
 		it('failed login', function(done) {
+
+			queryStub.callsArgWith(2,null, [])
+
 			request(server.app)
 				.post('/login')
 				.send({
@@ -517,6 +532,7 @@
 		});
 
 		it('apikey, mysql err', function(done) {
+			queryStub.callsArgWith(2, 'mysqlerr')
 			request(server.app)
 				.post('/authenticated')
 				.query({
@@ -526,6 +542,7 @@
 		});
 
 		it('apikey, inactive', function(done) {
+			queryStub.callsArgWith(2, null, [{active: 0}]);
 			request(server.app)
 				.get('/authenticated')
 				.query({
@@ -536,6 +553,7 @@
 		});
 
 		it('bad apikey', function(done) {
+			queryStub.callsArgWith(2, null, []);
 			request(server.app)
 				.get('/authenticated')
 				.query({
@@ -545,6 +563,8 @@
 		});
 
 		it('apikey, no session', function(done) {
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);
+			queryStub.onCall(1).callsArgWith(2, null, [{id: 1}]);
 
 			request(server.app)
 				.get('/authenticated')
@@ -556,6 +576,7 @@
 					if (err) {
 						return done(err);
 					}
+
 					request(server.app)
 						.post('/authenticated')
 						.set('cookie', res.headers['set-cookie'][0])
@@ -564,9 +585,11 @@
 		});
 
 		it('apikey, deserialize fail', function(done) {
-			server.deserializeUser = function(uid, cb) {
-				cb(new Error('deserializeError'))
-			}
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);
+			queryStub.onCall(1).callsArgWith(2, 'deserializeError');			
+			// server.deserializeUser = function(uid, cb) {
+			// 	cb(new Error('deserializeError'))
+			// }
 			request(server.app)
 				.get('/authenticated')
 				.query({
@@ -577,6 +600,7 @@
 		});
 
 		it('loginFn mysql error', function(done) {
+			queryStub.onCall(0).callsArgWith(2, 'queryerr');
 			request(server.app)
 				.post('/login')
 				.send({
@@ -587,6 +611,7 @@
 		});
 
 		it('login inactive user', function(done) {
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 0, id: 1}]);
 			request(server.app)
 				.post('/login')
 				.send({
@@ -598,29 +623,31 @@
 				.expect(/not active/, done)
 		});
 
-		it('salted password fail', function(done) {
-			request(server.app)
-				.post('/login')
-				.send({
-					username: 'salted',
-					password: 'salted'
-				})
-				.expect(401)
-				.expect(/"success":false/)
-				.expect(/password/, done)
-		});
+		// it('salted password fail', function(done) {
+		// 	request(server.app)
+		// 		.post('/login')
+		// 		.send({
+		// 			username: 'salted',
+		// 			password: 'salted'
+		// 		})
+		// 		.expect(401)
+		// 		.expect(/"success":false/)
+		// 		.expect(/password/, done)
+		// });
 
-		it('salted password success', function(done) {
-			request(server.app)
-				.post('/login')
-				.send({
-					username: 'salted2',
-					password: 'salted'
-				})
-				.expect(200, done)
-		});
+		// it('salted password success', function(done) {
+		// 	request(server.app)
+		// 		.post('/login')
+		// 		.send({
+		// 			username: 'salted2',
+		// 			password: 'salted'
+		// 		})
+		// 		.expect(200, done)
+		// });
 
 		it('login success', function(done) {
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);
+			queryStub.onCall(1).callsArgWith(2, null, [{active: 1, id: 1}]);
 			request(server.app)
 				.post('/login')
 				.send({
@@ -628,6 +655,7 @@
 					password: 'password'
 				})
 				.expect(200)
+				// .expect(/\{"requestCount":1\}/, done)
 				.end(function(err, res) {
 					if (err) {
 						return done(err);
@@ -638,7 +666,7 @@
 						.get('/authenticated')
 						.set('cookie', sessionCookie)
 						.expect(200)
-						.expect(/"user":"user"/, done)
+						.expect(/\{"requestCount":1\}/, done)
 				});
 		});
 
@@ -668,24 +696,13 @@
 	});
 
 	describe('api', function() {
-		// var _server = server.ExpressMiddlewareBundle();
-		// _server
-		// 	// .redis(fakeredis.createClient('test'))
-		// 	// .mysql(mysql)
-		// 	// .cookieConfig({
-		// 	// 	domain: cookieDomain
-		// 	// })
-		// 	.api();		
-
-		// // routes(_server);
-		// _server.post('/login', _server.login.bind(_server));
-		// _server.use(_server.authenticated.bind(_server));
-		// _server.get('/authenticated', function(req, res, next){
-		// 	res.end();
-		// });
-		// _server.errorHandler();
-
-		// _server.app.set('dontPrintErrors', true)
+		var queryStub;
+		beforeEach(function(){
+			if(mysql.query.restore){
+				mysql.query.restore()
+			}
+			queryStub = sinon.stub(mysql, 'query')
+		})
 
 		it('requires redis', function() {
 			var _server = server.ExpressMiddlewareBundle();
@@ -744,6 +761,9 @@
 
 		it('cookies work', function(done) {
 
+			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);
+			// queryStub.onCall(1).callsArgWith(2, null, [{active: 1, id: 1}]);
+			
 			var _server = server.ExpressMiddlewareBundle();
 			_server
 				.redis(fakeredis.createClient('test'))
@@ -770,6 +790,7 @@
 				})
 				.expect(200)
 				.end(function(err, res) {
+
 					if (err) {
 						return done(err)
 					}
@@ -785,21 +806,58 @@
 	});
 
 	describe('checkRoles', function() {
+		var queryStub;
+		var sessionCookie
+		before(function(done){
+			if(mysql.query.restore){
+				mysql.query.restore();
+			}
+			queryStub = sinon.stub(mysql, 'query')
+			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);
+			request(server.app)
+				.post('/login')
+				.send({
+					username: 'user',
+					password: 'password',
+					// remember_me: true
+				})
+				.expect(200)
+				.end(function(err, res) {
+
+					if (err) {
+						return done(err);
+					}
+
+					sessionCookie = res.headers['set-cookie'][0];
+					mysql.query.restore()
+					done()
+				})			
+		})
+
+		beforeEach(function(){
+			queryStub = sinon.stub(mysql, 'query')
+		})	
+		afterEach(function(){
+			mysql.query.restore()
+		})				
 		it('200', function(done) {
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);			
 			request(server.app)
 				.get('/roleA')
 				.set('cookie', sessionCookie)
 				.expect(200, done)
 		});
 
-		it('200 miss then match', function(done) {
-			request(server.app)
-				.get('/roleBorC')
-				.set('cookie', sessionCookie)
-				.expect(200, done)
-		});
+		// it('200 miss then match', function(done) {
+		// 	queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);		
+		// 	request(server.app)
+		// 		.get('/roleBorC')
+		// 		.set('cookie', sessionCookie)
+		// 		.expect(200, done)
+		// });
 
 		it('401 incorrect roles', function(done) {
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);					
 			request(server.app)
 				.get('/roleC')
 				.set('cookie', sessionCookie)
@@ -807,20 +865,15 @@
 		});
 
 		it('401 no user roles', function(done) {
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);		
 			request(server.app)
 				.get('/noRoles')
 				.set('cookie', sessionCookie)
 				.expect(403, done)
 		})
 
-		it('401 no user', function(done) {
-			request(server.app)
-				.get('/rolesNoUser')
-				.set('cookie', sessionCookie)
-				.expect(403, done)
-		})
-
 		it('wrapper denied', function(done) {
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);		
 			var testVal = 'denied'
 			server.get(
 				'/checkRolesWrapperDenied',
@@ -841,6 +894,7 @@
 		});
 
 		it('wrapper allowed', function(done) {
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);			
 			var testVal = 'denied'
 			server.get(
 				'/checkRolesWrapperAllowed',
@@ -895,6 +949,13 @@
 	describe('remember me', function() {
 
 		var _server = server.ExpressMiddlewareBundle();
+		var queryStub;
+		beforeEach(function(){
+			if(mysql.query.restore){
+				mysql.query.restore()
+			}
+			queryStub = sinon.stub(mysql, 'query')
+		})
 
 		before(function() {
 
@@ -903,16 +964,16 @@
 				.mysql(mysql)
 				.web();
 
-			_server.deserializeUser = function(string, cb) {
-				var user;
-				if (string == 1) {
-					user = {
-						username: 'user',
-						id: 1
-					};
-				}
-				return cb(null, user)
-			}
+			// _server.deserializeUser = function(string, cb) {
+			// 	var user;
+			// 	if (string == 1) {
+			// 		user = {
+			// 			username: 'user',
+			// 			id: 1
+			// 		};
+			// 	}
+			// 	return cb(null, user)
+			// }
 
 			_server.app.post('/login', _server.login.bind(_server));
 			_server.app.get('/logout', _server.logout.bind(_server));
@@ -935,6 +996,7 @@
 		})
 
 		it('login', function(done) {
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);	
 			request(_server.app)
 				.post('/login')
 				.send({
@@ -975,7 +1037,7 @@
 		});
 
 		it('remember_me and session cookies, previous session maintained', function(done) {
-
+			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);	
 			request(_server.app)
 				.get('/set')
 				.set('cookie', [sessionCookie, rememberCookie])
@@ -988,10 +1050,7 @@
 					if (err) {
 						return done(err);
 					}
-					// assert.notEqual(res.headers['set-cookie'][0], rememberCookie);
-					// assert.notEqual(res.headers['set-cookie'][1], sessionCookie);
-					// rememberCookie = res.headers['set-cookie'][0];
-					// sessionCookie = res.headers['set-cookie'][1];
+
 					request(_server.app)
 						.get('/')
 						.set('cookie', [sessionCookie, rememberCookie])
@@ -1004,6 +1063,7 @@
 		});
 
 		it('logout', function(done) {
+			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);	
 			request(_server.app)
 				.get('/logout')
 				.set('cookie', [sessionCookie, rememberCookie])
@@ -1021,7 +1081,7 @@
 		});
 
 		it('issueRememberMe error', function(done) {
-
+			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);	
 			_server.issueRememberMe = function(u, _done) {
 				_done('issueRemeberMe error')
 			};
@@ -1430,7 +1490,6 @@
 						channels: {
 							'queue:send-rec.version.queue': {
 								subscribe: function() {
-									// 	console.info('subscribe')
 								}
 							},
 							'queue:req-res.version.queue': {
@@ -1500,7 +1559,6 @@
 				assert.equal('req-res.' + p + '.queue', config.messageType)
 				return {
 					request: function(msg, cb) {
-						// console.info('request')
 						assert.equal(msg.test, true)
 						assert(typeof cb === 'function')
 						cb(null, {
@@ -1522,7 +1580,6 @@
 				server.rabbitRequest('queue', {
 					test: true
 				}, function(err, response) {
-					console.info(arguments);
 					assert.equal(response.response, true);
 					sinon.assert.calledOnce(stub)
 					Rabbus.Requester.restore();
@@ -1656,7 +1713,6 @@
 				}, config.body)
 				var deferred = Q.defer();
 				setTimeout(function() {
-					console.info('resolve')
 					deferred.resolve();
 				}, 5)
 				return deferred.promise;
@@ -1679,7 +1735,6 @@
 				}, function(err) {
 					assert(!err)
 					sinon.assert.calledTwice(stub)
-					// console.info('spy.callCount: ' + spy.callCount)
 					assert.equal(spy.callCount, 1)
 					Rabbus.Sender.restore();
 					server._wascally.publish.restore();
@@ -1909,20 +1964,21 @@
 		var _mysql = {
 			_events: 'fake events',
 			query: function(q, p, cb) {
+
 				// console.info(arguments);
 				if (
-					q === 'select id, password, salted, active from users where username = ?' && p && p[0] === 'user1'
+					q === 'select id, active from users where username = ?' && p && p[0] === 'user1'
 				) {
 					return cb(null, [])
 				}
 				if (
-					q === 'select id, password, salted, active from users where username = ?' && p && p[0] === 'error'
+					q === 'select id, active from users where username = ?' && p && p[0] === 'error'
 				) {
 					return cb('mysql fakeerror')
 				}
 
 				if (
-					q === 'select id, password, salted, active from users where username = ?' && p && p[0] === 'inactive'
+					q === 'select id, active from users where username = ?' && p && p[0] === 'inactive'
 				) {
 					return cb(null, [{
 						id: 1,
@@ -1934,7 +1990,7 @@
 				}
 
 				if (
-					q === 'select id, password, salted, active from users where username = ?' && p && p[0] === 'salted'
+					q === 'select id, active from users where username = ?' && p && p[0] === 'salted'
 				) {
 					return cb(null, [{
 						id: 1,
@@ -1946,7 +2002,7 @@
 				}
 
 				if (
-					q === 'select id, password, salted, active from users where username = ?' && p && p[0] === 'salted2'
+					q === 'select id, active from users where username = ?' && p && p[0] === 'salted2'
 				) {
 					return cb(null, [{
 						id: 1,
@@ -1985,7 +2041,7 @@
 				}
 
 				if (
-					q === 'select id, password, salted, active from users where username = ?' && p && p[0] == 'user'
+					q === 'select id, active from users where username = ?' && p && p[0] == 'user'
 				) {
 					return cb(null, [{
 						id: 1,
