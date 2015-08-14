@@ -37,6 +37,7 @@
 		this.sessionCookieLabel = 'sessionId'
 		this.morgan = require('morgan');
 
+		this.debug = debug;
 
 		return this;
 	}
