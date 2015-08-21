@@ -5,7 +5,7 @@
 
 	var express = require('express');
 
-	var redis = require('redis');
+	// var redis = require('redis');
 	var RedisStore = require('connect-redis')(require('express-session'));
 
 	var Passport = require('passport').Passport
@@ -17,7 +17,7 @@
 	var util = require("util");
 	var Rabbus = require("rabbus");
 
-	var _ = require('underscore')
+	// var _ = require('underscore')
 
 	function Scaff() {
 
@@ -482,7 +482,7 @@
 
 	Scaff.prototype.deserializeUser = function(string, done) {
 		debug('default deserializeUser: ' + string);
-		var t = this;
+		// var t = this;
 
 		var q = 'select u.* , GROUP_CONCAT( role ) roles from users u  join user_roles r on(u.id=r.user_id)  where id = ? group by user_id'
 		var p = [string]
@@ -492,7 +492,7 @@
 			if (err) {
 				return done(err)
 			}
-debug(rows[0].roles)
+			debug(rows[0].roles)
 			if(rows[0].roles){
 
 				var roles = rows[0].roles.split(',');
@@ -542,7 +542,7 @@ debug(JSON.stringify(rows[0]))
 			return done(new Error('mysql requied for login auth'));
 		}
 
-		var t = this;
+		// var t = this;
 
 		var query = "select id, active from users where username = ? and password = ?";
 		var params = [u, p];
@@ -660,7 +660,7 @@ debug(JSON.stringify(rows[0]))
 
 		// save user id as value to remember_me token key
 		debug('issueRememberMe, guid: ' + guid)
-		var response = this._redis.setex(
+		this._redis.setex(
 			'remember_me-' + guid, (1000 * 60 * 60 * 24 * 7),
 			parseInt(user, 10),
 			function(err) {
@@ -669,7 +669,7 @@ debug(JSON.stringify(rows[0]))
 		);
 	}
 
-	Scaff.prototype.authenticationRememberMe = function(verify, issue) {
+	Scaff.prototype.authenticationRememberMe = function() {
 		debug('authenticationRememberMe');
 
 		// if(typeof verify === 'function'){ this.verifyRememberMe = verify }
@@ -727,7 +727,7 @@ debug(JSON.stringify(rows[0]))
 		});
 	}
 
-	Scaff.prototype.authenticationApikey = function(authFn) {
+	Scaff.prototype.authenticationApikey = function() {
 		debug('authenticationApikey');
 		var t = this;
 
@@ -991,26 +991,27 @@ debug(JSON.stringify(rows[0]))
 		}
 	}
 
-	Scaff.prototype.errorHandler = function(err, req, res, next) {
+	Scaff.prototype.errorHandler = function() {
 		debug('add errorHandler')
 		var t = this;
 		this.app.use(function(error, req, res, next) {
 
-			if (!t.app.get('dontPrintErrors')) {
-				console.error('errorHandler')
-				console.error(error)
-				console.error(error.stack);
+			if(error){
+				if (!t.app.get('dontPrintErrors')) {
+					console.error('errorHandler')
+					console.error(error)
+					console.error(error.stack);
+				}
+
+				res.status(500).send(error.toString());
 			}
 
-			// next(err);	
-			// if (req.xhr) {
-			// 	res.status(500).send({
-			// 		error: 'Something blew up!'
-			// 	});
-			// } else {
-			res.status(500).send(error.toString());
-			// }
-		})
+
+			if(typeof next === 'function'){
+				next()
+			}
+
+		});
 
 		return this;
 	}
@@ -1018,7 +1019,7 @@ debug(JSON.stringify(rows[0]))
 	//----------------------------------------
 	// routes
 	//----------------------------------------
-	Scaff.prototype.logout = function(req, res, next) {
+	Scaff.prototype.logout = function(req, res) {
 
 		// clear passport session
 		req.logout();
