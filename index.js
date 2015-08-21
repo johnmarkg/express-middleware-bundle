@@ -994,17 +994,15 @@ debug(JSON.stringify(rows[0]))
 	Scaff.prototype.errorHandler = function() {
 		debug('add errorHandler')
 		var t = this;
-		this.app.use(function(error, req, res, next) {
+		this.app.use(function(error, req, res, next) { 
 
-			if(error){
-				if (!t.app.get('dontPrintErrors')) {
-					console.error('errorHandler')
-					console.error(error)
-					console.error(error.stack);
-				}
-
-				res.status(500).send(error.toString());
+			if (!t.app.get('dontPrintErrors')) {
+				console.error('errorHandler')
+				console.error(error)
+				console.error(error.stack);
 			}
+
+			res.status(500).send(error.toString());
 
 
 			if(typeof next === 'function'){
