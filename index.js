@@ -17,12 +17,16 @@
 	var util = require("util");
 	var Rabbus = require("rabbus");
 
+	var _ = require('underscore')
+
 	function Scaff() {
 
 		// dont want cached object
 		this.passport = new Passport();		
 
 		this.app = express();
+		// console.info(typeof this.app.use)
+		// console.info(this.app.address)
 		this.app.disable('x-powered-by');
 
 		// bind express functions to this
@@ -33,17 +37,60 @@
 		this.delete = this.app.delete.bind(this.app)
 		this.put = this.app.put.bind(this.app)
 
+
+
 		this.rememberMeCookieLabel = 'rememberMe'
 		this.sessionCookieLabel = 'sessionId'
 		this.morgan = require('morgan');
 
 		this.debug = debug;
 
+		// this.app.mysql = this.mysql.bind(this)
+		// this.app.redis = this.redis.bind(this)
+		// this.app.rabbitRequst = this.rabbitRequest.bind(this)
+		// this.app.rabbitSend = this.rabbitSend.bind(this)
+
+		
+// console.info('')
+// 		for(var i in this){
+// 			if(typeof this[i]=== 'function'){
+// 				console.info(i)
+// 				console.info(this[i])		
+// 			}
+			
+// 		}
+		// console.info(this.log)
+		if(this.redis){
+			this.app.redis = this.redis.bind(this)
+		}
+		if(this.mysql){
+			this.app.mysql = this.mysql.bind(this)
+		}		
+		if(this.rabbitSend){
+			this.app.rabbitSend = this.rabbitSend.bind(this)	
+		}
+		if(this.rabbitRequest){
+			this.app.rabbitRequest = this.rabbitRequest.bind(this)	
+		}		
+		// if(this.log){
+		// 	this.app.log = this.log.bind(this)	
+		// }		
+
+
 		return this;
 	}
 
 	// export constructor
-	module.exports = new Scaff();
+	// module.exports = new Scaff();
+	exports = module.exports = new Scaff();
+	// module.exports = create;
+	// exports = module.exports = create;
+	// function create(){
+	// 	return new Scaff();
+	// 	// var _server = new Scaff()
+	// 	// // _.extendOwn(_server.app, _server);
+	// 	// return _server;		
+	// }
 
 	// use this to get a new, non cached object 
 	Scaff.prototype.ExpressMiddlewareBundle = function() {
@@ -853,6 +900,7 @@ debug(JSON.stringify(rows[0]))
 			manualLogger(req, {}, function(){})
 			return this;
 		}
+		this.app.log = this.log.bind(this);
 
 		return this;
 	}

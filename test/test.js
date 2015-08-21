@@ -1344,7 +1344,8 @@
 
 		it('server.log', function() {
 			spyStdout.reset();
-			_server.log('log message')
+			// _server.log('log message')
+			_server.app.log('log message')
 			assert.equal(1, spyStdout.callCount)
 		})
 
@@ -1674,6 +1675,28 @@
 
 		});
 
+		it('rabbitSend via app', function(done) {
+
+			var _server = server.ExpressMiddlewareBundle();
+			_server.rabbit({
+				name: 'test',
+				server: 'host',
+				port: '1',
+				user: 'u',
+				pass: 'p'
+			});
+
+			var stub = sinon.stub(_server._wascally, 'publish', function(ex, config) {
+				var p = 'default'
+				assert.equal('send-rec.' + p +'-exchange', ex)
+				_server._wascally.publish.restore();
+				done();
+			});
+
+			_server.app.rabbitSend( 'queue', {
+				test: true
+			});			
+		});
 
 		it('rabbitSend version', function(done) {
 
