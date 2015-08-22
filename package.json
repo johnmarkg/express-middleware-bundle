@@ -1,9 +1,9 @@
 {
-  "name": "express-middleware-bundle",
-  "version": "0.8.2",
-  "description": "express with auth and sessions bundled in",
-  "main": "express-middlelware-bundle.js",
-  "repository": "https://github.com/johnmarkg/express-middleware-bundle",
+  "name": "service-scaff",
+  "version": "0.9",
+  "description": "resource scaff for services",
+  "main": "index.js",
+  "repository": "https://github.com/johnmarkg/service-scaff",
   "scripts": {
     "test": "make test",
     "coveralls": "cat ./coverage/lcov.info | ./node_modules/.bin/coveralls"

@@ -43,7 +43,7 @@
 		var queryStub;
 		var _server;
 		beforeEach(function() {
-			_server = server.ExpressMiddlewareBundle();
+			_server = server.ServiceScaff();
 			_server.express();
 			_server.set('dontPrintErrors', true)
 
@@ -213,7 +213,7 @@
 	});
 
 	// describe('web, no redis or mysql', function() {
-	// 	var _server = server.ExpressMiddlewareBundle();
+	// 	var _server = server.ServiceScaff();
 	// 	// var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 	// 	_server.web();
@@ -224,7 +224,7 @@
 
 		it('start cb', function(done) {
 
-			var _server2 = server.ExpressMiddlewareBundle()
+			var _server2 = server.ServiceScaff()
 			_server2.express();
 			_server2.start(0, function() {
 				assert(true)
@@ -238,13 +238,13 @@
 				delete process.send;
 				done();
 			}
-			var _server2 = server.ExpressMiddlewareBundle()
+			var _server2 = server.ServiceScaff()
 			_server2.express().start(0);
 		});
 
 		it('offline message', function(done) {
 
-			var _server2 = server.ExpressMiddlewareBundle()
+			var _server2 = server.ServiceScaff()
 
 			_server2.express().start(0, function() {
 				process.send = function(msg) {
@@ -259,7 +259,7 @@
 
 		describe('shutdown', function() {
 
-			var _server2 = server.ExpressMiddlewareBundle()
+			var _server2 = server.ServiceScaff()
 			_server2.express();
 			_server2.app.get('/slow/:ms', function(req, res) {
 
@@ -337,7 +337,7 @@
 		var _server;
 
 		before(function() {
-			_server = server.ExpressMiddlewareBundle();
+			_server = server.ServiceScaff();
 			_server.express().addGzip({
 				threshold: 1,
 			});
@@ -372,7 +372,7 @@
 		});
 
 		it('not compressesed, threshold', function(done) {
-			var _server = server.ExpressMiddlewareBundle();
+			var _server = server.ServiceScaff();
 
 			_server.express().addGzip();
 
@@ -460,7 +460,7 @@
 
 		it('different app using same store', function(done) {
 
-			var _server = server.ExpressMiddlewareBundle();
+			var _server = server.ServiceScaff();
 			_server.express().addRedisSessions({
 				client: fakeredis.createClient('test')
 			});
@@ -674,7 +674,7 @@
 		});
 
 		it('cross process, different session secret', function(done) {
-			var _server = server.ExpressMiddlewareBundle();
+			var _server = server.ServiceScaff();
 			_server.express().addRedisSessions({
 				client: fakeredis.createClient('test')
 			}, {
@@ -708,7 +708,7 @@
 		})
 
 		it('requires redis', function() {
-			var _server = server.ExpressMiddlewareBundle();
+			var _server = server.ServiceScaff();
 
 			assert.throws(function() {
 				_server.api();
@@ -722,7 +722,7 @@
 		})
 
 		it('default auth fails with no mysql', function(done) {
-			var _server = server.ExpressMiddlewareBundle();
+			var _server = server.ServiceScaff();
 			_server.redis(fakeredis.createClient('test'))
 			_server.api();
 			_server.use(_server.authenticated.bind(_server));
@@ -743,7 +743,7 @@
 		})
 
 		it('no local strategy', function(done) {
-			var _server = server.ExpressMiddlewareBundle();
+			var _server = server.ServiceScaff();
 			_server
 				.redis(fakeredis.createClient('test'))
 				.mysql(mysql)
@@ -767,7 +767,7 @@
 			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);
 			// queryStub.onCall(1).callsArgWith(2, null, [{active: 1, id: 1}]);
 			
-			var _server = server.ExpressMiddlewareBundle();
+			var _server = server.ServiceScaff();
 			_server
 				.redis(fakeredis.createClient('test'))
 				.mysql(mysql)
@@ -951,7 +951,7 @@
 
 	describe('remember me', function() {
 
-		var _server = server.ExpressMiddlewareBundle();
+		var _server = server.ServiceScaff();
 		var queryStub;
 		beforeEach(function(){
 			if(mysql.query.restore){
@@ -1103,10 +1103,10 @@
 	})
 
 	describe('jade', function() {
-		var _server = server.ExpressMiddlewareBundle();
+		var _server = server.ServiceScaff();
 
 		beforeEach(function() {
-			_server = server.ExpressMiddlewareBundle();
+			_server = server.ServiceScaff();
 			_server.express();
 		});
 
@@ -1143,11 +1143,11 @@
 	});
 
 	describe('static', function() {
-		var _server = server.ExpressMiddlewareBundle();
+		var _server = server.ServiceScaff();
 		// var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 		beforeEach(function() {
-			_server = server.ExpressMiddlewareBundle();
+			_server = server.ServiceScaff();
 			_server.express();
 			// _mochaHttp = mochaHttp.MochaHttpUtils();
 		});
@@ -1235,7 +1235,7 @@
 
 	describe('logger', function() {
 
-		var _server = server.ExpressMiddlewareBundle();
+		var _server = server.ServiceScaff();
 		_server.express();
 		var spyStdout = sinon.spy(process.stdout, 'write');
 
@@ -1360,7 +1360,7 @@
 	describe('get/set', function() {
 		var _server;
 		beforeEach(function() {
-			_server = server.ExpressMiddlewareBundle();
+			_server = server.ServiceScaff();
 		})
 
 		it('get redis', function() {
@@ -1530,7 +1530,7 @@
 
 		it('rabbitRequest inherits', function(done) {
 
-			var _server = server.ExpressMiddlewareBundle();
+			var _server = server.ServiceScaff();
 			_server.rabbit({
 				name: 'test',
 				server: 'host',
@@ -1683,7 +1683,7 @@
 
 		it('rabbitSend via app', function(done) {
 
-			var _server = server.ExpressMiddlewareBundle();
+			var _server = server.ServiceScaff();
 			_server.express().rabbit({
 				name: 'test',
 				server: 'host',
@@ -1706,7 +1706,7 @@
 
 		it('rabbitSend version', function(done) {
 
-			var _server = server.ExpressMiddlewareBundle();
+			var _server = server.ServiceScaff();
 			_server.rabbit({
 				name: 'test',
 				server: 'host',
@@ -1777,7 +1777,7 @@
 
 		it('rabbitReceive default version', function(done) {
 
-			var _server = server.ExpressMiddlewareBundle();
+			var _server = server.ServiceScaff();
 			_server.rabbit({
 				name: 'test',
 				server: 'host',

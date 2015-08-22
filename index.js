@@ -34,7 +34,7 @@
 	exports = module.exports = new Scaff();
 
 	// use this to get a new, non cached object 
-	Scaff.prototype.ExpressMiddlewareBundle = function() {
+	Scaff.prototype.ServiceScaff = function() {
 		return new Scaff();
 	};
 
