@@ -44,6 +44,7 @@
 		var _server;
 		beforeEach(function() {
 			_server = server.ExpressMiddlewareBundle();
+			_server.express();
 			_server.set('dontPrintErrors', true)
 
 			if(mysql.query.restore){
@@ -224,6 +225,7 @@
 		it('start cb', function(done) {
 
 			var _server2 = server.ExpressMiddlewareBundle()
+			_server2.express();
 			_server2.start(0, function() {
 				assert(true)
 				done()
@@ -237,14 +239,14 @@
 				done();
 			}
 			var _server2 = server.ExpressMiddlewareBundle()
-			_server2.start(0);
+			_server2.express().start(0);
 		});
 
 		it('offline message', function(done) {
 
 			var _server2 = server.ExpressMiddlewareBundle()
 
-			_server2.start(0, function() {
+			_server2.express().start(0, function() {
 				process.send = function(msg) {
 					assert(msg, 'offline')
 					delete process.send;
@@ -258,6 +260,7 @@
 		describe('shutdown', function() {
 
 			var _server2 = server.ExpressMiddlewareBundle()
+			_server2.express();
 			_server2.app.get('/slow/:ms', function(req, res) {
 
 				setTimeout(function() {
@@ -335,7 +338,7 @@
 
 		before(function() {
 			_server = server.ExpressMiddlewareBundle();
-			_server.addGzip({
+			_server.express().addGzip({
 				threshold: 1,
 			});
 			_server.addGzip() // still works with extra call to addGzip
@@ -371,7 +374,7 @@
 		it('not compressesed, threshold', function(done) {
 			var _server = server.ExpressMiddlewareBundle();
 
-			_server.addGzip();
+			_server.express().addGzip();
 
 			_server.app.get('/', function(req, res, next) {
 				res.json({
@@ -458,7 +461,7 @@
 		it('different app using same store', function(done) {
 
 			var _server = server.ExpressMiddlewareBundle();
-			_server.addRedisSessions({
+			_server.express().addRedisSessions({
 				client: fakeredis.createClient('test')
 			});
 
@@ -672,7 +675,7 @@
 
 		it('cross process, different session secret', function(done) {
 			var _server = server.ExpressMiddlewareBundle();
-			_server.addRedisSessions({
+			_server.express().addRedisSessions({
 				client: fakeredis.createClient('test')
 			}, {
 				secret: 'different secret'
@@ -1104,6 +1107,7 @@
 
 		beforeEach(function() {
 			_server = server.ExpressMiddlewareBundle();
+			_server.express();
 		});
 
 		it('error, no dir', function() {
@@ -1144,6 +1148,7 @@
 
 		beforeEach(function() {
 			_server = server.ExpressMiddlewareBundle();
+			_server.express();
 			// _mochaHttp = mochaHttp.MochaHttpUtils();
 		});
 
@@ -1231,6 +1236,7 @@
 	describe('logger', function() {
 
 		var _server = server.ExpressMiddlewareBundle();
+		_server.express();
 		var spyStdout = sinon.spy(process.stdout, 'write');
 
 		before(function() {
@@ -1678,7 +1684,7 @@
 		it('rabbitSend via app', function(done) {
 
 			var _server = server.ExpressMiddlewareBundle();
-			_server.rabbit({
+			_server.express().rabbit({
 				name: 'test',
 				server: 'host',
 				port: '1',

@@ -21,12 +21,29 @@
 
 	function Scaff() {
 
+		this.rememberMeCookieLabel = 'rememberMe'
+		this.sessionCookieLabel = 'sessionId'
+		this.morgan = require('morgan');
+
+		this.debug = debug;
+
+		return this;
+	}
+
+	// export constructor
+	exports = module.exports = new Scaff();
+
+	// use this to get a new, non cached object 
+	Scaff.prototype.ExpressMiddlewareBundle = function() {
+		return new Scaff();
+	};
+
+
+	Scaff.prototype.express = function() {
 		// dont want cached object
 		this.passport = new Passport();		
 
 		this.app = express();
-		// console.info(typeof this.app.use)
-		// console.info(this.app.address)
 		this.app.disable('x-powered-by');
 
 		// bind express functions to this
@@ -37,64 +54,20 @@
 		this.delete = this.app.delete.bind(this.app)
 		this.put = this.app.put.bind(this.app)
 
-
-
-		this.rememberMeCookieLabel = 'rememberMe'
-		this.sessionCookieLabel = 'sessionId'
-		this.morgan = require('morgan');
-
-		this.debug = debug;
-
-		// this.app.mysql = this.mysql.bind(this)
-		// this.app.redis = this.redis.bind(this)
-		// this.app.rabbitRequst = this.rabbitRequest.bind(this)
-		// this.app.rabbitSend = this.rabbitSend.bind(this)
-
-		
-// console.info('')
-// 		for(var i in this){
-// 			if(typeof this[i]=== 'function'){
-// 				console.info(i)
-// 				console.info(this[i])		
-// 			}
-			
-// 		}
-		// console.info(this.log)
-		if(this.redis){
+		// if(this.redis){
 			this.app.redis = this.redis.bind(this)
-		}
-		if(this.mysql){
+		// }
+		// if(this.mysql){
 			this.app.mysql = this.mysql.bind(this)
-		}		
-		if(this.rabbitSend){
+		// }		
+		// if(this.rabbitSend){
 			this.app.rabbitSend = this.rabbitSend.bind(this)	
-		}
-		if(this.rabbitRequest){
+		// }
+		// if(this.rabbitRequest){
 			this.app.rabbitRequest = this.rabbitRequest.bind(this)	
-		}		
-		// if(this.log){
-		// 	this.app.log = this.log.bind(this)	
 		// }		
 
-
 		return this;
-	}
-
-	// export constructor
-	// module.exports = new Scaff();
-	exports = module.exports = new Scaff();
-	// module.exports = create;
-	// exports = module.exports = create;
-	// function create(){
-	// 	return new Scaff();
-	// 	// var _server = new Scaff()
-	// 	// // _.extendOwn(_server.app, _server);
-	// 	// return _server;		
-	// }
-
-	// use this to get a new, non cached object 
-	Scaff.prototype.ExpressMiddlewareBundle = function() {
-		return new Scaff();
 	};
 
 	//----------------------------------------
@@ -182,7 +155,6 @@
 	//----------------------------------------
 	// rabbit
 	//----------------------------------------
-
 	function Receiver(rabbus, version, label, limit) {
 		var prefix = 'send-rec.';
 		return Rabbus.Receiver.call(this, rabbus, {
@@ -274,19 +246,19 @@
 				label
 			);
 		}
-// console.info(this.senders)
+
 		this.senders[key].send(msg, cb);
 	}
-
-
-
 
 	//----------------------------------------
 	// helpers
 	//----------------------------------------
 	Scaff.prototype.web = function() {
 
+
+
 		this
+			.express()
 			.addCookieParser()
 			.addGzip()
 			.addQueryAndBodyParser();
@@ -308,6 +280,7 @@
 
 	Scaff.prototype.api = function(redisConfig) {
 		this
+			.express()
 			.addCookieParser()
 			.addGzip()
 			.addQueryAndBodyParser();
@@ -419,19 +392,16 @@
 	//----------------------------------------
 	// sessions
 	//----------------------------------------	
-	// Scaff.prototype.addRedisSessions = function(redisConfig, cookieDomain, secret, key) {
 	Scaff.prototype.addRedisSessions = function(redisConfig, _sessionConfig, _cookieConfig) {
 		debug('addRedisSessions')
 
 		if(typeof redisConfig === 'undefined'){
 			if(!this._redis){
 				throw new Error('redis config or client required')
-				// throw new Error('addJade: dir required')
 			}
 			redisConfig = {
 				client: this._redis
 			}
-			// throw new Error('redis required for redis sessions')
 		}
 
 		var sessionConfig = _sessionConfig || {};
@@ -439,10 +409,6 @@
 
 		this.addCookieParser();
 		this.addQueryAndBodyParser();
-
-		// if (!redisConfig) {
-		// 	throw new Error('redis config or client required')
-		// }
 
 		// defaults
 		var _config = {
@@ -482,7 +448,6 @@
 
 	Scaff.prototype.deserializeUser = function(string, done) {
 		debug('default deserializeUser: ' + string);
-		// var t = this;
 
 		var q = 'select u.* , GROUP_CONCAT( role ) roles from users u  join user_roles r on(u.id=r.user_id)  where id = ? group by user_id'
 		var p = [string]
@@ -505,20 +470,14 @@
 			}
 
 			delete rows[0].password;
-debug(JSON.stringify(rows[0]))			
+			debug(JSON.stringify(rows[0]))			
 			return done(null, rows[0])
 		})
 	}
 
 	Scaff.prototype.initPassport = function() {
-
-		// if (this.deserializeUser) {
 		this.passport.deserializeUser(this.deserializeUser.bind(this));
-		// }
-
-		// if (this.serializeUser) {
 		this.passport.serializeUser(this.serializeUser.bind(this));
-		// }
 
 		if (this.passportInitialized) {
 			return this;
@@ -542,8 +501,6 @@ debug(JSON.stringify(rows[0]))
 			return done(new Error('mysql requied for login auth'));
 		}
 
-		// var t = this;
-
 		var query = "select id, active from users where username = ? and password = ?";
 		var params = [u, p];
 
@@ -565,53 +522,6 @@ debug(JSON.stringify(rows[0]))
 		});
 	}
 
-	// Scaff.prototype.verifyPassword = function(u, p, saltedAndhashedP, done) {
-
-	// Scaff.prototype.verifyPassword = function(u, p, saltedAndhashedP, done) {
-	// 	var query = "select * from users where username = ? and password = SHA1(?)";
-	// 	var query_params = [u, p];
-	// 	if (saltedAndhashedP) {
-	// 		debug('saltedAndhashedP: ' + saltedAndhashedP);
-
-	// 		query = "select * from users where username = ?";
-	// 		query_params = [u];
-
-	// 		if (!bcrypt.compareSync(p, saltedAndhashedP)) {
-	// 			debug('bcrypt.compareSync failure');
-	// 			debug(p)
-	// 			debug(saltedAndhashedP)
-
-	// 			return query_callback(null);
-	// 		}
-	// 		debug('bcrypt.compareSync success');
-
-	// 	}
-
-	// 	var update_user = true;
-
-	// 	function query_callback(err, results) {
-	// 		debug('verifyPassword query cb')
-	// 		debug(err);		
-	// 		debug(JSON.stringify(results));			
-	// 		if (err) {
-	// 			return done(err);
-	// 		}
-	// 		if (results && results.length === 1) {
-	// 			delete results[0].password;
-
-	// 			done(null, results[0].id, {
-	// 				adminUserView: !update_user
-	// 			});
-
-	// 		} else {
-	// 			done(null, false, {
-	// 				message: "Incorrect password"
-	// 			});
-	// 		}
-	// 	}
-
-	// 	this._mysql.query(query, query_params, query_callback, done);
-	// };
 
 	Scaff.prototype.authenticationLogin = function() {
 		debug('authenticationLogin');
