@@ -54,18 +54,16 @@
 		this.delete = this.app.delete.bind(this.app)
 		this.put = this.app.put.bind(this.app)
 
-		// if(this.redis){
-			this.app.redis = this.redis.bind(this)
-		// }
-		// if(this.mysql){
-			this.app.mysql = this.mysql.bind(this)
-		// }		
-		// if(this.rabbitSend){
-			this.app.rabbitSend = this.rabbitSend.bind(this)	
-		// }
-		// if(this.rabbitRequest){
-			this.app.rabbitRequest = this.rabbitRequest.bind(this)	
-		// }		
+
+		this.app.redis = this.redis.bind(this)
+		this.app.mysql = this.mysql.bind(this)
+		this.app.rabbitSend = this.rabbitSend.bind(this)	
+		this.app.rabbitRequest = this.rabbitRequest.bind(this)	
+
+		this.app.setStatus = this.setStatus.bind(this)
+		this.app.getStatus = this.getStatus.bind(this)
+		this.app.getStatusAll = this.getStatusAll.bind(this)
+		this.app.incrmentStatus = this.incrementStatus.bind(this)
 
 		return this;
 	};
@@ -92,6 +90,23 @@
 		return this;
 	}
 	
+
+	Scaff.prototype.sphinxql = function(_sphinxql) {
+		if(typeof _sphinxql === 'undefined'){
+			return this._sphinxql;	
+		}
+
+		// janky client object detection
+		if(_sphinxql._events){
+			debug('passed sphinxql client')
+		}
+		else{
+			 this._sphinxqlConfig = _sphinxql;
+			_sphinxql = require('mysql').createPool(_sphinxql)
+		}
+		this.__sphinxql = _sphinxql;
+		return this;
+	}
 	Scaff.prototype.mysql = function(_mysql) {
 		if(typeof _mysql === 'undefined'){
 			return this._mysql;	
@@ -349,6 +364,68 @@
 		this.app.set('view engine', 'jade');
 		// this.app.set('view options', options);
 		return this;
+	}
+
+
+	//----------------------------------------
+	// status functions
+	//----------------------------------------
+// utils.setStatus(statusKey, 'total', req.patentIds.length);
+// utils.incrementStatus(statusKey, 'complete', arr.length);
+// utils.getStatusAll(req.params.statusKey
+// 
+
+
+	function haveRedisClient(_this, cb){
+        if(!_this.redis()){
+        	var err = new Error('no redis client set')
+        	if(typeof cb === 'function'){
+				cb(err)
+				return false;
+        	}
+        	else{
+	        	throw err
+	        }
+	        
+        }		
+        return true;
+	}
+
+	Scaff.prototype.setStatus = function(key,field,val,cb){
+        debug('setStatus ' + key  + ', ' + field +': ' +val)
+        if(!haveRedisClient(this,cb)){
+        	return;
+        }
+		this.redis().hset(key,field,val,cb)
+	}
+	Scaff.prototype.getStatusAll = function(key,cb){
+        debug('getStatusAll ' + key )
+
+        if(!haveRedisClient(this,cb)){
+        	return;
+        }
+
+		this.redis().hgetall(key,cb)
+
+	}
+	Scaff.prototype.getStatus = function(key,field,cb){
+        if(!haveRedisClient(this,cb)){
+        	return;
+        }	
+        this.redis().hget(key,field,cb)	
+	}
+    // Scaff.prototype.delStatusAll = function(key,cb){
+    //     if(!haveRedisClient(this,cb)){
+    //     	return;
+    //     }	
+    //     this.redis().del(key,cb)    	
+    // }
+	Scaff.prototype.incrementStatus = function(key,field,val,cb){
+        debug('incrementStatus ' + key  + ', ' + field +': ' +val)
+        if(!haveRedisClient(this,cb)){
+        	return;
+        }	
+        this.redis().hincrby(key,field,val,cb)        
 	}
 
 	//----------------------------------------
