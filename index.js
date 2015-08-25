@@ -57,6 +57,8 @@
 
 		this.app.redis = this.redis.bind(this)
 		this.app.mysql = this.mysql.bind(this)
+		this.app.mongo = this.mongo.bind(this)
+		this.app.sphinxql = this.sphinxql.bind(this)
 		this.app.rabbitSend = this.rabbitSend.bind(this)	
 		this.app.rabbitRequest = this.rabbitRequest.bind(this)	
 
@@ -91,6 +93,34 @@
 	}
 	
 
+    // returns a Promise
+    Scaff.prototype.mongo = function(_mongo) {
+		if(typeof _mongo === 'undefined'){
+			return this._mongo;	
+		}    	
+
+
+		// janky client object detection
+		if(_mongo._events){
+			debug('passed mongo client')
+		}
+		else{
+			 this._mongoConfig = _mongo;
+
+			var MongoClient = require('mongodb').MongoClient;
+			var mongoURI = 'mongodb://' + _mongo.host + ':' + _mongo.port + '/' + _mongo.db;
+			MongoClient.connect(mongoURI, function (err, _db) {
+				if(err){ throw err; }
+				// _mongo = _db;
+				this._mongo = _db;
+			})
+
+
+		}
+		
+        return this;
+    }
+
 	Scaff.prototype.sphinxql = function(_sphinxql) {
 		if(typeof _sphinxql === 'undefined'){
 			return this._sphinxql;	
@@ -104,7 +134,7 @@
 			 this._sphinxqlConfig = _sphinxql;
 			_sphinxql = require('mysql').createPool(_sphinxql)
 		}
-		this.__sphinxql = _sphinxql;
+		this._sphinxql = _sphinxql;
 		return this;
 	}
 	Scaff.prototype.mysql = function(_mysql) {
@@ -370,12 +400,6 @@
 	//----------------------------------------
 	// status functions
 	//----------------------------------------
-// utils.setStatus(statusKey, 'total', req.patentIds.length);
-// utils.incrementStatus(statusKey, 'complete', arr.length);
-// utils.getStatusAll(req.params.statusKey
-// 
-
-
 	function haveRedisClient(_this, cb){
         if(!_this.redis()){
         	var err = new Error('no redis client set')
