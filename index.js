@@ -99,7 +99,7 @@
 			return this._mongo;	
 		}    	
 
-
+		var t = this;
 		// janky client object detection
 		if(_mongo._events){
 			debug('passed mongo client')
@@ -112,7 +112,7 @@
 			MongoClient.connect(mongoURI, function (err, _db) {
 				if(err){ throw err; }
 				// _mongo = _db;
-				this._mongo = _db;
+				t._mongo = _db;
 			})
 
 
