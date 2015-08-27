@@ -681,9 +681,15 @@
 	}
 
 
-	Scaff.prototype.issueRememberMe = function(user, done) {
-		debug('issueRememberMe: ' + user)
+	Scaff.prototype.issueRememberMe = function(userId, done) {
+		debug('issueRememberMe: ' + userId)
 		var t = this;
+
+		userId = parseInt(userId, 10)
+		if(isNaN(userId) || userId < 1){
+			return done('invalid userId');
+		}
+
 		if (!this.redis()) {
 			throw new Error('default verifyRememberMe requires redis client or config')
 		}
@@ -693,23 +699,13 @@
 			return v.toString(16);
 		});
 
-		// // save user id as value to remember_me token key
-		// debug('issueRememberMe, guid: ' + guid)
-		// this._redis.setex(
-		// 	'remember_me-' + guid, (1000 * 60 * 60 * 24 * 7),
-		// 	parseInt(user, 10),
-		// 	function(err) {
-		// 		done(err, guid)
-		// 	}
-		// );
-		// var key = 'remember_me-' + parseInt(user, 10)
 		var key = 'remember_me-' + guid;
-		var userKey = 'remember_me-' + parseInt(user, 10)
+		var userKey = 'remember_me-' + userId
 		var expires = (1000 * 60 * 60 * 24 * 30) // 30 days
 		this.redis().setex(
 			key,
 			expires,
-			guid, 
+			userId, 
 			function(err) {
 				if(err){
 					return done(err)
