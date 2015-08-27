@@ -1071,8 +1071,7 @@
 				.get('/logout')
 				.set('cookie', [sessionCookie, rememberCookie])
 				.expect(302)
-				.expect('set-cookie', /sessionId=;/)
-				.expect('set-cookie', /rememberMe=;/, done)
+				.expect('set-cookie', /sessionId=;/, done)
 
 		});
 

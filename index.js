@@ -1082,7 +1082,7 @@
 
 		// reset client cookies
 		res.cookie(this.sessionCookieLabel, '');
-		res.cookie(this.rememberMeCookieLabel, '');
+		// res.cookie(this.rememberMeCookieLabel, '');
 
 		res.redirect('/'); 
 	};
