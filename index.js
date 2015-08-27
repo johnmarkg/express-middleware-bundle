@@ -539,6 +539,67 @@
 		return this;
 	}
 
+	Scaff.prototype.clearUsersOtherSessions = function(req, res, next) {
+		// var userKey = 'remember_me-' + parseInt(userId, 10)
+		if (!this.redis()) {
+			throw new Error('default clearUsersRememberMe requires redis client or config')
+		}
+
+		var t = this;
+		this.redis().smembers(
+			redisUserSessionsKey(req.user.id),
+			function(err, members){
+				if(err){ return next(err); }
+				debug('clearUsersOtherSessions: ' + JSON.stringify(members));
+
+				var delKeys = [];
+				for(var i in members){
+					debug(members[i])
+					if(members[i] === req.sessionId){
+						debug('this is the current session, dont delete');
+						// return qNext();
+					}					
+					else{
+						delKeys.push('sess:' + members[i])
+					}
+				}
+
+				if(delKeys.length === 0){
+					return next();
+				}
+
+				var args = delKeys
+				args.push(function(err){
+					console.info(arguments)
+					if(err){
+						return next(err);
+					}
+					next()
+				});
+
+				t.redis().del.apply(t.redis(), args);
+			}
+		);
+	}
+
+	Scaff.prototype.clearUsersRememberMe = function(userId, done) {
+		// var userKey = 'remember_me-' + parseInt(userId, 10)
+		if (!this.redis()) {
+			throw new Error('default clearUsersRememberMe requires redis client or config')
+		}
+		this.redis().del(redisUserRememberMeKey(parseInt(userId, 10)), done);
+	}		
+
+	function redisUserSessionsKey(id){
+		return 'user_sessions-' + id;
+	}
+	function redisUserRememberMeKey(id){
+		return 'user_remember_me-' + id;
+	}	
+	function redisRememberMeKey(id){
+		return 'remember_me-' + id;
+	}	
+
 	//----------------------------------------
 	// passport
 	//----------------------------------------
@@ -652,34 +713,21 @@
 		var t = this;
 		// get user id associated with token
 		this.redis().get(
-			'remember_me-' + token,
+			redisRememberMeKey(token),
 			function(err, userId){
 				if(err){ return done(err); }
 
 				// verify token is still valid
-				var userKey = 'remember_me-' + parseInt(userId, 10)
 				t.redis().sismember(
-					userKey,
+					redisUserRememberMeKey(parseInt(userId, 10)),
 					token,
 					function(err){
 						done(err, userId)
 					}
 				)
-
 			}
-
 		);
-
-
 	}
-	Scaff.prototype.clearUsersRememberMe = function(userId, done) {
-		var userKey = 'remember_me-' + parseInt(userId, 10)
-		if (!this.redis()) {
-			throw new Error('default clearUsersRememberMe requires redis client or config')
-		}
-		this.redis().del(userKey, done);
-	}
-
 
 	Scaff.prototype.issueRememberMe = function(userId, done) {
 		debug('issueRememberMe: ' + userId)
@@ -699,18 +747,18 @@
 			return v.toString(16);
 		});
 
-		var key = 'remember_me-' + guid;
-		var userKey = 'remember_me-' + userId
+		// var key = 'remember_me-' + guid;
+		// var userKey = 'remember_me-' + userId
 		var expires = (1000 * 60 * 60 * 24 * 30) // 30 days
 		this.redis().setex(
-			key,
+			redisRememberMeKey(guid),
 			expires,
 			userId, 
 			function(err) {
 				if(err){
 					return done(err)
 				}				
-				t.redis().sadd(userKey, guid, function(err){
+				t.redis().sadd(redisUserRememberMeKey(userId), guid, function(err){
 					if(err){
 						return done(err)
 					}
@@ -817,6 +865,15 @@
 					debug('authenticationHandler: login err')
 					return next(err);
 				}
+
+				// save users session ids if they need to be accessed later
+				t.redis().sadd(redisUserSessionsKey(user), req.sessionID, function(err){
+					debug('sadd(redisUserSessionsKey cb')
+					if(err){
+						return next(err)
+					}
+				})	
+
 
 				if (t.rememberMe && req.body && req.body.remember_me) {
 
