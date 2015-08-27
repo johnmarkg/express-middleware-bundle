@@ -646,21 +646,45 @@
 	//----------------------------------------
 	Scaff.prototype.verifyRememberMe = function(token, done) {
 		debug('verifyRememberMe: ' + token)
-		if (!this._redis) {
+		if (!this.redis()) {
 			throw new Error('default verifyRememberMe requires redis client');
 		}
-
+		var t = this;
 		// get user id associated with token
-		this._redis.get(
+		this.redis().get(
 			'remember_me-' + token,
-			done
+			function(err, userId){
+				if(err){ return done(err); }
+
+				// verify token is still valid
+				var userKey = 'remember_me-' + parseInt(userId, 10)
+				t.redis().sismember(
+					userKey,
+					token,
+					function(err){
+						done(err, userId)
+					}
+				)
+
+			}
+
 		);
+
+
 	}
+	Scaff.prototype.clearUsersRememberMe = function(userId, done) {
+		var userKey = 'remember_me-' + parseInt(userId, 10)
+		if (!this.redis()) {
+			throw new Error('default clearUsersRememberMe requires redis client or config')
+		}
+		this.redis().del(userKey, done);
+	}
+
 
 	Scaff.prototype.issueRememberMe = function(user, done) {
 		debug('issueRememberMe: ' + user)
-
-		if (!this._redis) {
+		var t = this;
+		if (!this.redis()) {
 			throw new Error('default verifyRememberMe requires redis client or config')
 		}
 		var guid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -669,15 +693,35 @@
 			return v.toString(16);
 		});
 
-		// save user id as value to remember_me token key
-		debug('issueRememberMe, guid: ' + guid)
-		this._redis.setex(
-			'remember_me-' + guid, (1000 * 60 * 60 * 24 * 7),
-			parseInt(user, 10),
+		// // save user id as value to remember_me token key
+		// debug('issueRememberMe, guid: ' + guid)
+		// this._redis.setex(
+		// 	'remember_me-' + guid, (1000 * 60 * 60 * 24 * 7),
+		// 	parseInt(user, 10),
+		// 	function(err) {
+		// 		done(err, guid)
+		// 	}
+		// );
+		// var key = 'remember_me-' + parseInt(user, 10)
+		var key = 'remember_me-' + guid;
+		var userKey = 'remember_me-' + parseInt(user, 10)
+		var expires = (1000 * 60 * 60 * 24 * 30) // 30 days
+		this.redis().setex(
+			key,
+			expires,
+			guid, 
 			function(err) {
-				done(err, guid)
+				if(err){
+					return done(err)
+				}				
+				t.redis().sadd(userKey, guid, function(err){
+					if(err){
+						return done(err)
+					}
+					done(null, guid);
+				})
 			}
-		);
+		);		
 	}
 
 	Scaff.prototype.authenticationRememberMe = function() {
