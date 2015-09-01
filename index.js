@@ -1,7 +1,7 @@
 (function() {
 
 	var fs = require('fs');
-	var debug = require('debug')('express-scaffold')
+	var debug = require('debug')('service-scaff')
 
 	var express = require('express');
 
@@ -13,6 +13,7 @@
 	var LocalAPIKeyStrategy = require('passport-localapikey').Strategy;
 	var RememberMeStrategy = require('passport-remember-me').Strategy;
 
+	var morganTokens = require('./lib/morgan-tokens')
 
 	var util = require("util");
 	var Rabbus = require("rabbus");
@@ -23,7 +24,7 @@
 
 		this.rememberMeCookieLabel = 'rememberMe'
 		this.sessionCookieLabel = 'sessionId'
-		this.morgan = require('morgan');
+		
 
 		this.debug = debug;
 
@@ -299,8 +300,6 @@
 	// helpers
 	//----------------------------------------
 	Scaff.prototype.web = function() {
-
-
 
 		this
 			.express()
@@ -980,6 +979,10 @@
 	// logging
 	//----------------------------------------
 	Scaff.prototype.addLogger = function(tokens, immediate) {
+		if(!this.morgan){
+			this.morgan = require('morgan');
+			morganTokens.addTokens(this.morgan);			
+		}
 
 		function skipFn(req, res) {
 			if (req.query && req.query.noLog) {
@@ -987,17 +990,20 @@
 			}
 		}
 
-		var morganFn = this.morgan(tokens || '[:date[iso]] :method :url HTTP/:http-version :status :res[content-length] ":referrer" ":user-agent"', {
-			immediate: immediate,
-			skip: skipFn
-		});
+		var morganFn = this.morgan(
+			':time :customMethod :customStatus :urlWithUser :responseTime :params :customUa',
+			{
+				immediate: immediate,
+				skip: skipFn
+			}
+		);	
+
+		this.app.use(morganFn);
+
 
 		var manualLogger = this.morgan(tokens || '[:date[iso]] :method :url', {
 			immediate: true
 		});
-
-		this.app.use(morganFn);
-
 
 		this.log = function(string){
 			var req = {
@@ -1135,7 +1141,7 @@
 
 		// reset client cookies
 		res.cookie(this.sessionCookieLabel, '');
-		// res.cookie(this.rememberMeCookieLabel, '');
+		res.cookie(this.rememberMeCookieLabel, '');
 
 		res.redirect('/'); 
 	};
