@@ -1,6 +1,6 @@
 {
   "name": "service-scaff",
-  "version": "0.14.4",
+  "version": "0.14.5",
   "description": "resource scaff for services",
   "main": "index.js",
   "repository": "https://github.com/johnmarkg/service-scaff",
