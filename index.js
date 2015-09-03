@@ -991,7 +991,7 @@
 		}
 
 		var morganFn = this.morgan(
-			':time :customMethod :customStatus :urlWithUser :responseTime :params :customUa',
+			tokens || ':time :customMethod :customStatus :urlWithUser :responseTime :params :customUa',
 			{
 				immediate: immediate,
 				skip: skipFn
@@ -1001,15 +1001,21 @@
 		this.app.use(morganFn);
 
 
-		var manualLogger = this.morgan(tokens || '[:date[iso]] :method :url', {
-			immediate: true
-		});
-
-		this.log = function(string){
-			var req = {
-				url: string,
-				method: 'LOG'
+		var manualLogger = this.morgan(	
+			tokens || '[:date[iso]] :method :url', 
+			{
+				immediate: true
 			}
+		);
+
+		this.log = function(req){
+			if(typeof req === 'string'){
+				var req = {
+					url: req,
+					method: 'LOG'
+				}				
+			}
+
 			
 			manualLogger(req, {}, function(){})
 			return this;
