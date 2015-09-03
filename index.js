@@ -990,34 +990,31 @@
 			}
 		}
 
-		var morganFn = this.morgan(
-			tokens || ':time :customMethod :customStatus :urlWithUser :responseTime :params :customUa',
-			{
-				immediate: immediate,
-				skip: skipFn
-			}
-		);	
+		if(!tokens){
+			tokens = ':time :customMethod :customStatus :urlWithUser :responseTime :params :customUa'
+		}
+
+		var morganFn = this.morgan(tokens, {
+			immediate: immediate,
+			skip: skipFn
+		});	
 
 		this.app.use(morganFn);
 
+		var manualLogger = this.morgan(tokens, {
+			immediate: true
+		});
 
-		var manualLogger = this.morgan(	
-			tokens || '[:date[iso]] :method :url', 
-			{
-				immediate: true
-			}
-		);
-
-		this.log = function(req){
+		this.log = function(req, res){
 			if(typeof req === 'string'){
-				var req = {
+				req = {
 					url: req,
 					method: 'LOG'
 				}				
 			}
 
 			
-			manualLogger(req, {}, function(){})
+			manualLogger(req, res || {}, function(){})
 			return this;
 		}
 		this.app.log = this.log.bind(this);
