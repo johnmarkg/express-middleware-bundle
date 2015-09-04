@@ -1,6 +1,6 @@
 {
   "name": "service-scaff",
-  "version": "0.14.5",
+  "version": "0.15.0",
   "description": "resource scaff for services",
   "main": "index.js",
   "repository": "https://github.com/johnmarkg/service-scaff",
@@ -17,6 +17,7 @@
   "dependencies": {
     "body-parser": "1.13.3",
     "colors": "^1.1.2",
+    "commander": "^2.8.1",
     "compression": "1.5.2",
     "connect-redis": "2.4.1",
     "cookie-parser": "^1.3.5",

@@ -39,6 +39,10 @@
 		return new Scaff();
 	};
 
+	Scaff.prototype.serviceScaff = function() {
+		return new Scaff();
+	};
+
 
 	Scaff.prototype.express = function() {
 		// dont want cached object
@@ -1161,6 +1165,14 @@
 			info.session = true;
 			t.authenticateHandler(err, user, info, req, res, next);
 		})(req, res, next);
+	}
+
+
+	Scaff.prototype.commandLineArgs = function(options, ver){
+		return require('./lib/command-line')(options, ver)
+
+		// console.info(fn)
+		// return fn
 	}
 
 })(this);
