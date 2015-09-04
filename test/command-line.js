@@ -34,6 +34,14 @@
 			assert.equal(clArgs.int, 123)
 		});
 
+		it('array option', function(){
+			process.argv = ['','','--int', '123']
+			var clArgs = server.commandLineArgs([
+				['-i, --int [int]', 'description' , parseInt]
+			]);
+			assert.equal(clArgs.int, 123)
+		});
+
 	})
 
 }).call(this);	
