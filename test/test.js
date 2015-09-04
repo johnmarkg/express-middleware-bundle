@@ -4,7 +4,7 @@
 
 	var request = require('supertest');
 
-	var path = require('path');
+	// var path = require('path');
 	var sinon = require('sinon');
 
 	var fakeredis = require('fakeredis');
@@ -43,7 +43,7 @@
 		var queryStub;
 		var _server;
 		beforeEach(function() {
-			_server = server.ServiceScaff();
+			_server = server.serviceScaff();
 			_server.express();
 			_server.set('dontPrintErrors', true)
 
@@ -141,7 +141,7 @@
 					password: 'b'
 				})
 				.expect(500)
-				.end(function(err, res) {
+				.end(function(err) {
 					if (err) {
 						return done(err);
 					}
@@ -169,7 +169,7 @@
 					password: 'b'
 				})
 				.expect(500)
-				.end(function(err, res) {
+				.end(function(err) {
 					if (err) {
 						return done(err);
 					}
@@ -213,7 +213,7 @@
 	});
 
 	// describe('web, no redis or mysql', function() {
-	// 	var _server = server.ServiceScaff();
+	// 	var _server = server.serviceScaff();
 	// 	// var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 	// 	_server.web();
@@ -224,7 +224,7 @@
 
 		it('start cb', function(done) {
 
-			var _server2 = server.ServiceScaff()
+			var _server2 = server.serviceScaff()
 			_server2.express();
 			_server2.start(0, function() {
 				assert(true)
@@ -238,13 +238,13 @@
 				delete process.send;
 				done();
 			}
-			var _server2 = server.ServiceScaff()
+			var _server2 = server.serviceScaff()
 			_server2.express().start(0);
 		});
 
 		it('offline message', function(done) {
 
-			var _server2 = server.ServiceScaff()
+			var _server2 = server.serviceScaff()
 
 			_server2.express().start(0, function() {
 				process.send = function(msg) {
@@ -259,7 +259,7 @@
 
 		describe('shutdown', function() {
 
-			var _server2 = server.ServiceScaff()
+			var _server2 = server.serviceScaff()
 			_server2.express();
 			_server2.app.get('/slow/:ms', function(req, res) {
 
@@ -272,6 +272,9 @@
 			var _port;
 			it('respond to pending request on shutdown', function(done) {
 				_server2.start(0, function(err, p) {
+					if(err){
+						return done(err)
+					}
 					_port = p
 
 					// request(_server2.server)
@@ -292,7 +295,7 @@
 						request('http://127.0.0.1:' + _port)
 							.get('/slow/100')
 						// .expect(200)
-						.end(function(err, res) {
+						.end(function(err) {
 							assert('ECONNREFUSED', err.code)
 							// done();
 						});
@@ -306,7 +309,7 @@
 				request('http://127.0.0.1:' + _port)
 					.get('/slow/100')
 
-				.end(function(err, res) {
+				.end(function(err) {
 					assert('ECONNREFUSED', err.code)
 					done();
 				});
@@ -337,12 +340,12 @@
 		var _server;
 
 		before(function() {
-			_server = server.ServiceScaff();
+			_server = server.serviceScaff();
 			_server.express().addGzip({
 				threshold: 1,
 			});
 			_server.addGzip() // still works with extra call to addGzip
-			_server.app.get('/', function(req, res, next) {
+			_server.app.get('/', function(req, res) {
 				res.json({
 					abc: 123
 				})
@@ -372,11 +375,11 @@
 		});
 
 		it('not compressesed, threshold', function(done) {
-			var _server = server.ServiceScaff();
+			var _server = server.serviceScaff();
 
 			_server.express().addGzip();
 
-			_server.app.get('/', function(req, res, next) {
+			_server.app.get('/', function(req, res) {
 				res.json({
 					abc: 123
 				});
@@ -460,7 +463,7 @@
 
 		it('different app using same store', function(done) {
 
-			var _server = server.ServiceScaff();
+			var _server = server.serviceScaff();
 			_server.express().addRedisSessions({
 				client: fakeredis.createClient('test')
 			});
@@ -674,7 +677,7 @@
 		});
 
 		it('cross process, different session secret', function(done) {
-			var _server = server.ServiceScaff();
+			var _server = server.serviceScaff();
 			_server.express().addRedisSessions({
 				client: fakeredis.createClient('test')
 			}, {
@@ -708,7 +711,7 @@
 		})
 
 		it('requires redis', function() {
-			var _server = server.ServiceScaff();
+			var _server = server.serviceScaff();
 
 			assert.throws(function() {
 				_server.api();
@@ -722,11 +725,11 @@
 		})
 
 		it('default auth fails with no mysql', function(done) {
-			var _server = server.ServiceScaff();
+			var _server = server.serviceScaff();
 			_server.redis(fakeredis.createClient('test'))
 			_server.api();
 			_server.use(_server.authenticated.bind(_server));
-			_server.get('/authenticated', function(req, res, next) {
+			_server.get('/authenticated', function(req, res) {
 				res.end();
 			});
 			_server.errorHandler();
@@ -743,7 +746,7 @@
 		})
 
 		it('no local strategy', function(done) {
-			var _server = server.ServiceScaff();
+			var _server = server.serviceScaff();
 			_server
 				.redis(fakeredis.createClient('test'))
 				.mysql(mysql)
@@ -767,7 +770,7 @@
 			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);
 			// queryStub.onCall(1).callsArgWith(2, null, [{active: 1, id: 1}]);
 			
-			var _server = server.ServiceScaff();
+			var _server = server.serviceScaff();
 			_server
 				.redis(fakeredis.createClient('test'))
 				.mysql(mysql)
@@ -779,7 +782,7 @@
 			// routes(_server);
 			_server.post('/login', _server.login.bind(_server));
 			_server.use(_server.authenticated.bind(_server));
-			_server.get('/authenticated', function(req, res, next) {
+			_server.get('/authenticated', function(req, res) {
 				res.end();
 			});
 			_server.errorHandler();
@@ -884,7 +887,7 @@
 					testVal = 'allowed'
 					next();
 				}),
-				function(req, res, next) {
+				function(req, res) {
 					res.end(testVal)
 				}
 			);
@@ -905,7 +908,7 @@
 					testVal = 'allowed'
 					next();
 				}),
-				function(req, res, next) {
+				function(req, res) {
 					res.end(testVal)
 				}
 			);
@@ -951,7 +954,7 @@
 
 	describe('remember me', function() {
 
-		var _server = server.ServiceScaff();
+		var _server = server.serviceScaff();
 		var queryStub;
 		beforeEach(function(){
 			if(mysql.query.restore){
@@ -1049,7 +1052,7 @@
 					value: 'there'
 				})
 				.expect(200)
-				.end(function(err, res) {
+				.end(function(err) {
 					if (err) {
 						return done(err);
 					}
@@ -1102,10 +1105,10 @@
 	})
 
 	describe('jade', function() {
-		var _server = server.ServiceScaff();
+		var _server = server.serviceScaff();
 
 		beforeEach(function() {
-			_server = server.ServiceScaff();
+			_server = server.serviceScaff();
 			_server.express();
 		});
 
@@ -1142,11 +1145,11 @@
 	});
 
 	describe('static', function() {
-		var _server = server.ServiceScaff();
+		var _server = server.serviceScaff();
 		// var _mochaHttp = mochaHttp.MochaHttpUtils();
 
 		beforeEach(function() {
-			_server = server.ServiceScaff();
+			_server = server.serviceScaff();
 			_server.express();
 			// _mochaHttp = mochaHttp.MochaHttpUtils();
 		});
@@ -1192,7 +1195,7 @@
 			request(_server.app)
 				.get('/mounted/test.txt')
 				.expect(200)
-				.end(function(err, res) {
+				.end(function(err) {
 					if (err) {
 						return done(err);
 					}
@@ -1211,14 +1214,14 @@
 			request(_server.app)
 				.get('/mounted/test.txt')
 				.expect(200)
-				.end(function(err, res) {
+				.end(function(err) {
 					if (err) {
 						return done(err);
 					}
 					request(_server.app)
 						.get('/test2.txt')
 						.expect(200)
-						.end(function(err, res) {
+						.end(function(err) {
 							if (err) {
 								return done(err);
 							}
@@ -1234,7 +1237,7 @@
 
 	describe('logger', function() {
 
-		var _server = server.ServiceScaff();
+		var _server = server.serviceScaff();
 		_server.express();
 		var spyStdout = sinon.spy(process.stdout, 'write');
 
@@ -1359,7 +1362,7 @@
 	describe('get/set', function() {
 		var _server;
 		beforeEach(function() {
-			_server = server.ServiceScaff();
+			_server = server.serviceScaff();
 		})
 
 		it('get redis', function() {
@@ -1529,7 +1532,7 @@
 
 		it('rabbitRequest inherits', function(done) {
 
-			var _server = server.ServiceScaff();
+			var _server = server.serviceScaff();
 			_server.rabbit({
 				name: 'test',
 				server: 'host',
@@ -1578,6 +1581,9 @@
 			server.rabbitRequest( 'queue', {
 				test: true
 			}, function(err, response) {
+				if(err){
+					return done(err)
+				}
 
 				assert.equal(response.response, true);
 
@@ -1586,6 +1592,9 @@
 				server.rabbitRequest('queue', {
 					test: true
 				}, function(err, response) {
+					if(err){
+						return done(err)
+					}					
 					assert.equal(response.response, true);
 					sinon.assert.calledOnce(stub)
 					Rabbus.Requester.restore();
@@ -1599,7 +1608,7 @@
 
 		it('rabbitRespond inherits', function(done) {
 
-			function handler(msg, _done) {
+			function handler(msg) {
 				assert.equal(spy.callCount, 1);
 				assert.deepEqual(msg, {
 					incoming: true
@@ -1608,14 +1617,14 @@
 				done();
 			}
 
-			var stub = sinon.stub(
-				server._wascally.connections.default.channels['queue:req-res.version.queue'],
-				'subscribe',
-				function() {
-					handler({
-						incoming: true
-					}, function() {})
-				});
+           sinon.stub(
+                   server._wascally.connections.default.channels['queue:req-res.version.queue'],
+                   'subscribe',
+                   function() {
+                           handler({
+                                   incoming: true
+                           }, function() {})
+                   });
 
 			var spy = sinon.spy(Rabbus, 'Responder');
 			server.rabbitRespond('queue', 2, handler);
@@ -1644,6 +1653,9 @@
 			delete server._rabbitConfig.connection.prefix;
 
 			server.rabbitRespond( 'queue', 2, function(err, response) {
+				if(err){
+					return done(err)
+				}				
 				assert.equal(response.response, true);
 				sinon.assert.calledOnce(stub)
 				Rabbus.Responder.restore();
@@ -1672,6 +1684,9 @@
 				}
 			});
 			server.rabbitRespond('queue', 'string', function(err, response) {
+				if(err){
+					return done(err)
+				}				
 				assert.equal(response.response, true);
 				sinon.assert.calledOnce(stub)
 				Rabbus.Responder.restore();
@@ -1682,7 +1697,7 @@
 
 		it('rabbitSend via app', function(done) {
 
-			var _server = server.ServiceScaff();
+			var _server = server.serviceScaff();
 			_server.express().rabbit({
 				name: 'test',
 				server: 'host',
@@ -1691,7 +1706,7 @@
 				pass: 'p'
 			});
 
-			var stub = sinon.stub(_server._wascally, 'publish', function(ex, config) {
+			sinon.stub(_server._wascally, 'publish', function(ex) {
 				var p = 'default'
 				assert.equal('send-rec.' + p +'-exchange', ex)
 				_server._wascally.publish.restore();
@@ -1705,7 +1720,7 @@
 
 		it('rabbitSend version', function(done) {
 
-			var _server = server.ServiceScaff();
+			var _server = server.serviceScaff();
 			_server.rabbit({
 				name: 'test',
 				server: 'host',
@@ -1714,7 +1729,7 @@
 				pass: 'p'
 			});
 
-			var stub = sinon.stub(_server._wascally, 'publish', function(ex, config) {
+			sinon.stub(_server._wascally, 'publish', function(ex) {
 				var p = 'default'
 				assert.equal('send-rec.' + p +'-exchange', ex)
 				_server._wascally.publish.restore();
@@ -1753,7 +1768,7 @@
 
 			server.rabbitSend( 'queue', {
 				test: true
-			}, function(err, response) {
+			}, function(err) {
 				assert(!err);
 	
 				// delete server._rabbitConfig.connection.prefix
@@ -1776,7 +1791,7 @@
 
 		it('rabbitReceive default version', function(done) {
 
-			var _server = server.ServiceScaff();
+			var _server = server.serviceScaff();
 			_server.rabbit({
 				name: 'test',
 				server: 'host',
@@ -1784,7 +1799,7 @@
 				user: 'u',
 				pass: 'p'
 			});
-			var stub = sinon.stub(Rabbus, 'Receiver', function(r, config) {
+			sinon.stub(Rabbus, 'Receiver', function(r, config) {
 				assert.deepEqual({
 					name: 'send-rec.default.queue',
 					limit: 1
@@ -1804,7 +1819,7 @@
 
 		it('rabbitReceive inherits', function(done) {
 
-			function handler(msg, _done) {
+			function handler(msg) {
 				assert.equal(spy.callCount, 1);
 				assert.deepEqual(msg, {
 					incoming: true
@@ -1813,7 +1828,7 @@
 				done();
 			}
 
-			var stub = sinon.stub(
+			sinon.stub(
 				server._wascally.connections.default.channels['queue:send-rec.version.queue'],
 				'subscribe',
 				function() {
@@ -1839,7 +1854,7 @@
 					exchange: 'test-exchange'
 				}
 			});
-			server.rabbitReceive('queue', 'string', function(err, _done) {
+			server.rabbitReceive('queue', 'string', function(err) {
 				assert(!err)
 				sinon.assert.calledOnce(stub)
 				Rabbus.Receiver.restore();
@@ -1919,7 +1934,7 @@
 		// every route after this requires authentication
 		_localServer.use(_localServer.authenticated.bind(_localServer));
 
-		_localServer.get('/authenticated', function(req, res, next) {
+		_localServer.get('/authenticated', function(req, res) {
 			res.status(401);
 			var count = 1;
 			if (req.isAuthenticated() || req.user) {

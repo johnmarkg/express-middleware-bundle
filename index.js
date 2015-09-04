@@ -326,7 +326,7 @@
 		return this;
 	}
 
-	Scaff.prototype.api = function(redisConfig) {
+	Scaff.prototype.api = function() {
 		this
 			.express()
 			.addCookieParser()
@@ -988,7 +988,7 @@
 			morganTokens.addTokens(this.morgan);			
 		}
 
-		function skipFn(req, res) {
+		function skipFn(req) {
 			if (req.query && req.query.noLog) {
 				return true;
 			}
