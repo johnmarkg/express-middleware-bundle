@@ -1409,10 +1409,10 @@
 			done();
 		})
 
-		it('rabbit get', function() {
-			_server._wascally = 1;
-			assert(_server.rabbit());
-		})
+		// it('rabbit get', function() {
+		// 	_server.wascally = 1;
+		// 	assert(_server.rabbit());
+		// })
 
 		it('rabbit set', function(done) {
 
@@ -1429,7 +1429,7 @@
 					durable: true
 				},
 			}, function() {
-				_server._wascally.once('test.connection.failed', function(err) {
+				_server.wascally.once('test.connection.failed', function(err) {
 					assert.equal('No endpoints could be reached', err)
 					done();
 				});
@@ -1465,7 +1465,7 @@
 	describe('rabbit', function() {
 
 		beforeEach(function(done) {
-			// server._wascally = {
+			// server.wascally = {
 			// 	addExchange: function(){}
 			// }
 
@@ -1483,9 +1483,9 @@
 				//        durable: true
 				//    },					
 			}, function() {
-				// server._wascally.once('test.connection.failed', function(err){
+				// server.wascally.once('test.connection.failed', function(err){
 				// 	// assert.equal('No endpoints could be reached',err)
-				server._wascally.connections = {
+				server.wascally.connections = {
 					'default': {
 						createExchange: function() {},
 						createQueue: function() {},
@@ -1509,7 +1509,7 @@
 					}
 				}
 
-				server._wascally.bindQueue = function() {
+				server.wascally.bindQueue = function() {
 					var deferred = Q.defer();
 					setTimeout(function() {
 						deferred.resolve();
@@ -1517,7 +1517,7 @@
 					return deferred.promise;
 				}
 
-				server._wascally.addExchange = function() {
+				server.wascally.addExchange = function() {
 					var deferred = Q.defer();
 					setTimeout(function() {
 						deferred.resolve();
@@ -1541,7 +1541,7 @@
 				pass: 'p'
 			});
 
-			_server._wascally.request = function(ex, config) {
+			_server.wascally.request = function(ex, config) {
 				assert.equal('req-res.default-exchange', ex)
 				assert.equal('default.queue', config.routingKey)
 				assert.equal('req-res.default.queue', config.type)
@@ -1618,7 +1618,7 @@
 			}
 
            sinon.stub(
-                   server._wascally.connections.default.channels['queue:req-res.version.queue'],
+                   server.wascally.connections.default.channels['queue:req-res.version.queue'],
                    'subscribe',
                    function() {
                            handler({
@@ -1706,10 +1706,10 @@
 				pass: 'p'
 			});
 
-			sinon.stub(_server._wascally, 'publish', function(ex) {
+			sinon.stub(_server.wascally, 'publish', function(ex) {
 				var p = 'default'
 				assert.equal('send-rec.' + p +'-exchange', ex)
-				_server._wascally.publish.restore();
+				_server.wascally.publish.restore();
 				done();
 			});
 
@@ -1729,10 +1729,10 @@
 				pass: 'p'
 			});
 
-			sinon.stub(_server._wascally, 'publish', function(ex) {
+			sinon.stub(_server.wascally, 'publish', function(ex) {
 				var p = 'default'
 				assert.equal('send-rec.' + p +'-exchange', ex)
-				_server._wascally.publish.restore();
+				_server.wascally.publish.restore();
 				done();
 			});
 
@@ -1743,7 +1743,7 @@
 
 		it('rabbitSend inherits', function(done) {
 
-			var stub = sinon.stub(server._wascally, 'publish', function(ex, config) {
+			var stub = sinon.stub(server.wascally, 'publish', function(ex, config) {
 				var p = 'version'
 				// if(stub.callCount > 1){
 				// 	p = 'default';
@@ -1780,7 +1780,7 @@
 					sinon.assert.calledTwice(stub)
 					assert.equal(spy.callCount, 1)
 					Rabbus.Sender.restore();
-					server._wascally.publish.restore();
+					server.wascally.publish.restore();
 					// server._rabbitConfig.connection.prefix = 'version'
 					done();
 				})
@@ -1829,7 +1829,7 @@
 			}
 
 			sinon.stub(
-				server._wascally.connections.default.channels['queue:send-rec.version.queue'],
+				server.wascally.connections.default.channels['queue:send-rec.version.queue'],
 				'subscribe',
 				function() {
 					handler({

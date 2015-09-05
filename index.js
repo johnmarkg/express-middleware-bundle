@@ -3,6 +3,8 @@
 	var fs = require('fs');
 	var debug = require('debug')('service-scaff')
 
+	
+
 	var express = require('express');
 
 	// var redis = require('redis');
@@ -15,10 +17,7 @@
 
 	var morganTokens = require('./lib/morgan-tokens')
 
-	var util = require("util");
-	var Rabbus = require("rabbus");
-
-	// var _ = require('underscore')
+	var rabbit = require('./lib/rabbit')
 
 	function Scaff() {
 
@@ -45,6 +44,7 @@
 
 
 	Scaff.prototype.express = function() {
+
 		// dont want cached object
 		this.passport = new Passport();		
 
@@ -59,18 +59,18 @@
 		this.delete = this.app.delete.bind(this.app)
 		this.put = this.app.put.bind(this.app)
 
-
 		this.app.redis = this.redis.bind(this)
 		this.app.mysql = this.mysql.bind(this)
 		this.app.mongo = this.mongo.bind(this)
 		this.app.sphinxql = this.sphinxql.bind(this)
-		this.app.rabbitSend = this.rabbitSend.bind(this)	
-		this.app.rabbitRequest = this.rabbitRequest.bind(this)	
+
+        this.app.rabbitSend = this.rabbitSend.bind(this)
+        this.app.rabbitRequest = this.rabbitRequest.bind(this)
 
 		this.app.setStatus = this.setStatus.bind(this)
 		this.app.getStatus = this.getStatus.bind(this)
 		this.app.getStatusAll = this.getStatusAll.bind(this)
-		this.app.incrmentStatus = this.incrementStatus.bind(this)
+		this.app.incrementStatus = this.incrementStatus.bind(this)
 
 		return this;
 	};
@@ -97,8 +97,6 @@
 		return this;
 	}
 	
-
-    // returns a Promise
     Scaff.prototype.mongo = function(_mongo) {
 		if(typeof _mongo === 'undefined'){
 			return this._mongo;	
@@ -142,6 +140,7 @@
 		this._sphinxql = _sphinxql;
 		return this;
 	}
+
 	Scaff.prototype.mysql = function(_mysql) {
 		if(typeof _mysql === 'undefined'){
 			return this._mysql;	
@@ -161,42 +160,6 @@
 		return this;
 	}
 
-	Scaff.prototype.rabbit = function(wascallyConfig, cb) {
-		if(typeof wascallyConfig === 'undefined'){
-			return this._wascally;	
-		}
-
-		var config = {};
-		// // janky client object detection
-		// if(_rabbit._events){
-		// 	debug('passed rabbit')
-		// }
-		// else{
-		if(!wascallyConfig.connection){
-			config.connection = wascallyConfig
-		}
-		else{
-			config = wascallyConfig	
-		}
-
-		// var prefix = config.connection.prefix || 'default';
-
-		this._rabbitConfig = config;
-	    this._wascally = require( 'wascally' );
-	    // _rabbit = require( 'lapin' )( this._wascally );
-
-	    this._wascally.configure(config).done(function(){
-
-	    	if(typeof cb === 'function'){
-	    		cb();
-	    	}
-	    });
-
-		// this._rabbit = _rabbit;
-		return this;
-	}
-
-	
 	Scaff.prototype.cookieConfig = function(_config) {
 		this._cookieConfig = _config;
 		return this;
@@ -205,100 +168,44 @@
 	//----------------------------------------
 	// rabbit
 	//----------------------------------------
-	function Receiver(rabbus, version, label, limit) {
-		var prefix = 'send-rec.';
-		return Rabbus.Receiver.call(this, rabbus, {
-			exchange: prefix + version + "-exchange",
-			queue: {
-				name: prefix + version + '.' + label ,
-				limit: typeof limit === 'number' ? limit : 1
-			},
-			routingKey: version + '.' + label,
-			messageType: prefix + version + '.' + label
-		});
-	}
-	util.inherits(Receiver, Rabbus.Receiver);
-
-	function Sender(rabbus, version, label) {
-		var prefix = 'send-rec.';
-		return Rabbus.Sender.call(this, rabbus, {
-			exchange: prefix + version + "-exchange",
-			routingKey: version + '.' + label,
-			messageType: prefix + version + '.' + label
-		});
-	}
-	util.inherits(Sender, Rabbus.Sender);
-
-	function Responder(rabbus, version, label, limit) {
-		var prefix = 'req-res.';
-		return Rabbus.Responder.call(this, rabbus, {
-			exchange: prefix + version + "-exchange",
-			queue: {
-				name: prefix + version + '.' + label ,
-				limit: typeof limit === 'number' ? limit : 1
-			},
-			routingKey: version + '.' + label,
-			messageType: prefix + version + '.' + label
-		});
-	}
-	util.inherits(Responder, Rabbus.Responder);
-
-	function Requester(rabbus, version, label) {
-		var prefix = 'req-res.';
-
-		return Rabbus.Requester.call(this, rabbus, {
-			exchange: prefix + version + "-exchange",
-			routingKey: version + '.' + label,
-			messageType: prefix + version + '.' + label
-		});
-	}
-	util.inherits(Requester, Rabbus.Requester);
-
-
-	Scaff.prototype.rabbitRespond = function(queue, limit, handler){
-		var version = this._rabbitConfig.connection.prefix || 'default'
-		var responder = new Responder(this._wascally, version, queue, limit);
-		responder.handle(handler);		
-	}
-	Scaff.prototype.rabbitRequest = function(label, msg, cb){
-		var version = this._rabbitConfig.connection.prefix || 'default'
-		if(!this.requesters){
-			this.requesters = {}
-		}
-		var key = version + '-' + label;
-		if(!this.requesters[key]){
-			this.requesters[key] = new Requester(
-				this._wascally, 
-				version, 
-				label
-			);
+	Scaff.prototype.rabbit = function(wascallyConfig, cb) {
+		if(typeof wascallyConfig === 'undefined'){
+			return this.wascally;	
 		}
 
-		this.requesters[key].request(msg, cb);
+		var config = {};
+
+		if(!wascallyConfig.connection){
+			config.connection = wascallyConfig
+		}
+		else{
+			config = wascallyConfig	
+		}
+
+		this._rabbitConfig = config;
+	    this.wascally = require( 'wascally' );
+
+	    this.wascally.configure(config).done(function(){
+
+	    	if(typeof cb === 'function'){
+	    		cb();
+	    	}
+	    });
+
+		return this;
 	}
-
-
 	Scaff.prototype.rabbitReceive = function(queue, limit, handler){
-		var version = this._rabbitConfig.connection.prefix || 'default'
-		var receiver = new Receiver(this._wascally, version, queue, limit);
-		receiver.receive(handler);		
+		return rabbit.receive.call(this, queue, limit, handler)	
 	}
+	Scaff.prototype.rabbitRespond = function(queue, limit, handler){
+		return rabbit.respond.call(this, queue, limit, handler)	
+	}	
 	Scaff.prototype.rabbitSend = function(label, msg, cb){
-		var version = this._rabbitConfig.connection.prefix || 'default'
-		if(!this.senders){
-			this.senders = {}
-		}
-		var key = version + '-' + label;
-		if(!this.senders[key]){
-			this.senders[key] = new Sender(
-				this._wascally, 
-				version, 
-				label
-			);
-		}
-
-		this.senders[key].send(msg, cb);
-	}
+		return rabbit.send.call(this, label, msg, cb)	
+	}		
+	Scaff.prototype.rabbitRequest = function(label, msg, cb){
+		return rabbit.request.call(this, label, msg, cb)	
+	}			
 
 	//----------------------------------------
 	// helpers
