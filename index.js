@@ -917,6 +917,7 @@
 		});
 
 		this.log = function(req, res){
+
 			if(typeof req === 'string'){
 				req = {
 					url: req,
@@ -924,6 +925,7 @@
 				}				
 			}
 
+			if(skipFn(req)){ return this; }
 			
 			manualLogger(req, res || {}, function(){})
 			return this;
