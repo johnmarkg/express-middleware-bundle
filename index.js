@@ -896,7 +896,7 @@
 		}
 
 		function skipFn(req) {
-			if (req.query && req.query.noLog) {
+			if (req.noLog || (req.query && req.query.noLog)) {
 				return true;
 			}
 		}
