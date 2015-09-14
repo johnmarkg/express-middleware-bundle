@@ -3,7 +3,7 @@
 	var fs = require('fs');
 	var debug = require('debug')('service-scaff')
 
-	
+
 
 	var express = require('express');
 
@@ -23,7 +23,7 @@
 
 		this.rememberMeCookieLabel = 'rememberMe'
 		this.sessionCookieLabel = 'sessionId'
-		
+
 
 		this.debug = debug;
 
@@ -33,7 +33,7 @@
 	// export constructor
 	exports = module.exports = new Scaff();
 
-	// use this to get a new, non cached object 
+	// use this to get a new, non cached object
 	Scaff.prototype.ServiceScaff = function() {
 		return new Scaff();
 	};
@@ -46,7 +46,7 @@
 	Scaff.prototype.express = function() {
 
 		// dont want cached object
-		this.passport = new Passport();		
+		this.passport = new Passport();
 
 		this.app = express();
 		this.app.disable('x-powered-by');
@@ -80,7 +80,7 @@
 	//----------------------------------------
 	Scaff.prototype.redis = function(_redis) {
 		if(typeof _redis === 'undefined'){
-			return this._redis;	
+			return this._redis;
 		}
 
 		// janky client object detection
@@ -96,11 +96,11 @@
 		this._redis = _redis;
 		return this;
 	}
-	
+
     Scaff.prototype.mongo = function(_mongo) {
 		if(typeof _mongo === 'undefined'){
-			return this._mongo;	
-		}    	
+			return this._mongo;
+		}
 
 		var t = this;
 		// janky client object detection
@@ -120,13 +120,13 @@
 
 
 		}
-		
+
         return this;
     }
 
 	Scaff.prototype.sphinxql = function(_sphinxql) {
 		if(typeof _sphinxql === 'undefined'){
-			return this._sphinxql;	
+			return this._sphinxql;
 		}
 
 		// janky client object detection
@@ -143,7 +143,7 @@
 
 	Scaff.prototype.mysql = function(_mysql) {
 		if(typeof _mysql === 'undefined'){
-			return this._mysql;	
+			return this._mysql;
 		}
 
 		// janky client object detection
@@ -170,7 +170,7 @@
 	//----------------------------------------
 	Scaff.prototype.rabbit = function(wascallyConfig, cb) {
 		if(typeof wascallyConfig === 'undefined'){
-			return this.wascally;	
+			return this.wascally;
 		}
 
 		var config = {};
@@ -179,7 +179,7 @@
 			config.connection = wascallyConfig
 		}
 		else{
-			config = wascallyConfig	
+			config = wascallyConfig
 		}
 
 		this._rabbitConfig = config;
@@ -195,17 +195,17 @@
 		return this;
 	}
 	Scaff.prototype.rabbitReceive = function(queue, limit, handler){
-		return rabbit.receive.call(this, queue, limit, handler)	
+		return rabbit.receive.call(this, queue, limit, handler)
 	}
 	Scaff.prototype.rabbitRespond = function(queue, limit, handler){
-		return rabbit.respond.call(this, queue, limit, handler)	
-	}	
+		return rabbit.respond.call(this, queue, limit, handler)
+	}
 	Scaff.prototype.rabbitSend = function(label, msg, cb){
-		return rabbit.send.call(this, label, msg, cb)	
-	}		
+		return rabbit.send.call(this, label, msg, cb)
+	}
 	Scaff.prototype.rabbitRequest = function(label, msg, cb){
-		return rabbit.request.call(this, label, msg, cb)	
-	}			
+		return rabbit.request.call(this, label, msg, cb)
+	}
 
 	//----------------------------------------
 	// helpers
@@ -320,8 +320,8 @@
         	else{
 	        	throw err
 	        }
-	        
-        }		
+
+        }
         return true;
 	}
 
@@ -345,21 +345,21 @@
 	Scaff.prototype.getStatus = function(key,field,cb){
         if(!haveRedisClient(this,cb)){
         	return;
-        }	
-        this.redis().hget(key,field,cb)	
+        }
+        this.redis().hget(key,field,cb)
 	}
     // Scaff.prototype.delStatusAll = function(key,cb){
     //     if(!haveRedisClient(this,cb)){
     //     	return;
-    //     }	
-    //     this.redis().del(key,cb)    	
+    //     }
+    //     this.redis().del(key,cb)
     // }
 	Scaff.prototype.incrementStatus = function(key,field,val,cb){
         debug('incrementStatus ' + key  + ', ' + field +': ' +val)
         if(!haveRedisClient(this,cb)){
         	return;
-        }	
-        this.redis().hincrby(key,field,val,cb)        
+        }
+        this.redis().hincrby(key,field,val,cb)
 	}
 
 	//----------------------------------------
@@ -402,7 +402,7 @@
 
 	//----------------------------------------
 	// sessions
-	//----------------------------------------	
+	//----------------------------------------
 	Scaff.prototype.addRedisSessions = function(redisConfig, _sessionConfig, _cookieConfig) {
 		debug('addRedisSessions')
 
@@ -468,7 +468,7 @@
 					if(members[i] === req.sessionId){
 						debug('this is the current session, dont delete');
 						// return qNext();
-					}					
+					}
 					else{
 						delKeys.push('sess:' + members[i])
 					}
@@ -498,17 +498,17 @@
 			throw new Error('default clearUsersRememberMe requires redis client or config')
 		}
 		this.redis().del(redisUserRememberMeKey(parseInt(userId, 10)), done);
-	}		
+	}
 
 	function redisUserSessionsKey(id){
 		return 'user_sessions-' + id;
 	}
 	function redisUserRememberMeKey(id){
 		return 'user_remember_me-' + id;
-	}	
+	}
 	function redisRememberMeKey(id){
 		return 'remember_me-' + id;
-	}	
+	}
 
 	//----------------------------------------
 	// passport
@@ -535,14 +535,14 @@
 				var roles = rows[0].roles.split(',');
 				debug(roles)
 				rows[0].roles = {};
-				
+
 				for(var i in roles){
 					rows[0].roles[roles[i]] = true;
 				}
 			}
 
 			delete rows[0].password;
-			debug(JSON.stringify(rows[0]))			
+			debug(JSON.stringify(rows[0]))
 			return done(null, rows[0])
 		})
 	}
@@ -566,7 +566,7 @@
 
 	//----------------------------------------
 	// authentication login
-	//----------------------------------------	
+	//----------------------------------------
 	Scaff.prototype.loginFn = function(u, p, done) {
 
 		if (!this._mysql) {
@@ -588,7 +588,7 @@
 					message: 'Account is not active'
 				});
 			}
-			else{ 
+			else{
 				return done(null, results[0].id);
 			}
 		});
@@ -663,11 +663,11 @@
 		this.redis().setex(
 			redisRememberMeKey(guid),
 			expires,
-			userId, 
+			userId,
 			function(err) {
 				if(err){
 					return done(err)
-				}				
+				}
 				t.redis().sadd(redisUserRememberMeKey(userId), guid, function(err){
 					if(err){
 						return done(err)
@@ -675,7 +675,7 @@
 					done(null, guid);
 				})
 			}
-		);		
+		);
 	}
 
 	Scaff.prototype.authenticationRememberMe = function() {
@@ -782,7 +782,7 @@
 					if(err){
 						return next(err)
 					}
-				})	
+				})
 
 
 				if (t.rememberMe && req.body && req.body.remember_me) {
@@ -808,7 +808,7 @@
 		}
 
 		// no session (api requests)
-		// 
+		//
 		// cant use req.login as it will create a session and send
 		// a session cookie in response headers
 		else {
@@ -849,7 +849,7 @@
 	Scaff.prototype.checkRoles = function(roles, req, res, next) {
 
 		if(roleTest(roles, req)){
-			return next();		
+			return next();
 		}
 
 		res.status(403);
@@ -858,7 +858,7 @@
 	Scaff.prototype.checkRolesWrapper = function(roles, fn, req, res, next) {
 
 		if(roleTest(roles, req)){
-			return fn(req, res, next)	
+			return fn(req, res, next)
 		}
 
 		return next();
@@ -871,10 +871,10 @@
 		// // http://stackoverflow.com/questions/1885557/simplest-code-for-array-intersection-in-javascript/1885569#1885569
 		// var match = r.filter(function(n) {
 		//     return roles.indexOf(n) != -1
-		// });		
+		// });
 		// if(match.length > 0){
 		// 	return true;
-		// }		
+		// }
 		// return false;
 
 		for(var i in roles){
@@ -892,7 +892,7 @@
 	Scaff.prototype.addLogger = function(tokens, immediate) {
 		if(!this.morgan){
 			this.morgan = require('morgan');
-			morganTokens.addTokens(this.morgan);			
+			morganTokens.addTokens(this.morgan);
 		}
 
 		function skipFn(req) {
@@ -908,7 +908,7 @@
 		var morganFn = this.morgan(tokens, {
 			immediate: immediate,
 			skip: skipFn
-		});	
+		});
 
 		this.app.use(morganFn);
 
@@ -922,11 +922,11 @@
 				req = {
 					url: req,
 					method: 'LOG'
-				}				
+				}
 			}
 
 			if(skipFn(req)){ return this; }
-			
+
 			manualLogger(req, res || {}, function(){})
 			return this;
 		}
@@ -956,8 +956,8 @@
 				this.address().port
 			);
 
-			
-			
+
+
 
 			if (process.send) {
 				// for naught
@@ -988,18 +988,18 @@
 		this.server.close(function() {
 			debug("server stopped accepting connections")
 			if(msg){
-				console.info(msg)	
+				console.info(msg)
 			}
-			
+
 			if (process.send) {
 				process.send('offline');
-			}			
+			}
 		})
 		// var t = this;
 		// var wait = (this.shutdownTimeout || 1 * 60 * 1000);
 		// setTimeout(function() {
 		// 	console.error(process.pid + " Could not close connections in time, forcefully shutting down (waited " + wait + "ms) ")
-		// 	delete t.server;	
+		// 	delete t.server;
 		// 	// process.exit(1)
 		// }, wait);
 	}
@@ -1024,7 +1024,7 @@
 	Scaff.prototype.errorHandler = function() {
 		debug('add errorHandler')
 		var t = this;
-		this.app.use(function(error, req, res, next) { 
+		this.app.use(function(error, req, res, next) {
 
 			if (!t.app.get('dontPrintErrors')) {
 				console.error('errorHandler')
@@ -1059,7 +1059,7 @@
 		res.cookie(this.sessionCookieLabel, '');
 		res.cookie(this.rememberMeCookieLabel, '');
 
-		res.redirect('/'); 
+		res.redirect('/');
 	};
 
 	Scaff.prototype.login = function(req, res, next) {
