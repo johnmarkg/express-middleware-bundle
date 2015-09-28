@@ -1079,7 +1079,7 @@
 				email.send(
 					t.config('email'),
 					msg,
-					'PatentCAM Error: ' + req.path,
+					'PatentCAM Error: ' + req.protocol + '://' + req.get('host') + req.path,
 					next
 				)
 			}
