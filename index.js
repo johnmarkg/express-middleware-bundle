@@ -151,12 +151,22 @@
 			debug('passed mysql client')
 		}
 		else{
-			// _mysql = require('mysql').createConnection(_mysql)
 			 this._mysqlConfig = _mysql;
 			_mysql = require('mysql').createPool(_mysql)
 		}
 		this._mysql = _mysql;
-		// console.info(_mysql)
+
+		return this;
+	}
+
+	Scaff.prototype.config = function(key,_config) {
+		if(!this.configs){
+			this.configs = {}
+		}
+		if(typeof _config === 'undefined'){
+			return this.configs[key]
+		}
+		this.configs[key] = _config
 		return this;
 	}
 
@@ -1021,6 +1031,19 @@
 		}
 	}
 
+
+	Scaff.prototype.sendEmail = function(msg, subject, to, from, cb) {
+
+		if(!this.config('email')){
+			if(typeof cb == 'function'){
+				cb(new Error('email config is required: serviceScaff.config("email", configObject)'))
+			}
+			return
+		}
+		var email = require('../lib/email');
+		email.send(this.config('email'), msg, subject, to, from, cb);
+	}
+
 	Scaff.prototype.errorHandler = function() {
 		debug('add errorHandler')
 		var t = this;
@@ -1034,8 +1057,23 @@
 
 			res.status(500).send(error.toString());
 
+			if(t.config('email')){
+				var msg = '<p>User: ' + JSON.stringify(req.user, null, 4) + '</p>';
 
-			if(typeof next === 'function'){
+				msg += '<p>Request: ' + req.url + '</p>';
+				msg += '<p>Query: ' + JSON.stringify(req.query, null, 4) + '</p>';
+
+				msg += '<p>Error: ' + JSON.stringify(error.stack, null, 4) + '</p>';
+
+				var email = require('../lib/email');
+				email.send(
+					t.config('email'),
+					msg,
+					'PatentCAM Error',
+					next
+				)
+			}
+			else if(typeof next === 'function'){
 				next()
 			}
 
@@ -1043,6 +1081,28 @@
 
 		return this;
 	}
+	// Scaff.prototype.errorHandlerEmail = function() {
+	// 	debug('add errorHandlerEmail')
+	// 	var t = this;
+	// 	this.app.use(function(error, req, res, next) {
+	//
+	// 		if (!t.app.get('dontPrintErrors')) {
+	// 			console.error('errorHandler')
+	// 			console.error(error)
+	// 			console.error(error.stack);
+	// 		}
+	//
+	// 		res.status(500).send(error.toString());
+	//
+	//
+	// 		if(typeof next === 'function'){
+	// 			next()
+	// 		}
+	//
+	// 	});
+	//
+	// 	return this;
+	// }
 
 	//----------------------------------------
 	// routes
