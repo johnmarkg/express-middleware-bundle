@@ -1,6 +1,6 @@
 {
   "name": "service-scaff",
-  "version": "0.16.2",
+  "version": "0.16.3",
   "description": "resource scaff for services",
   "main": "index.js",
   "repository": "https://github.com/johnmarkg/service-scaff",
@@ -22,6 +22,7 @@
     "connect-redis": "2.4.1",
     "cookie-parser": "^1.3.5",
     "debug": "^2.2.0",
+    "emailjs": "^1.0.0",
     "express": "5.0.0-alpha.2",
     "express-session": "^1.11.3",
     "jade": "^1.11.0",
