@@ -50,7 +50,7 @@
 			if(mysql.query.restore){
 				mysql.query.restore()
 			}
-			queryStub = sinon.stub(mysql, 'query')			
+			queryStub = sinon.stub(mysql, 'query')
 		});
 
 		it('need a port', function() {
@@ -145,7 +145,7 @@
 					if (err) {
 						return done(err);
 					}
-					assert.equal(3, spyError.callCount);
+					assert.equal(1, spyError.callCount);
 					done();
 				});
 		});
@@ -322,14 +322,14 @@
 		// 		request(_server2.server)
 		// 			.get('/slow/1000')
 		// 			// .get('/')
-		// 			.expect(200);	
+		// 			.expect(200);
 
 		// 		_server2.shutdown();
 
 		// 		request(_server2.server)
 		// 			.get('/slow/100')
 		// 			// .get('/')
-		// 			.expect(500,done);					
+		// 			.expect(500,done);
 
 		// 	});
 
@@ -592,7 +592,7 @@
 
 		it('apikey, deserialize fail', function(done) {
 			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);
-			queryStub.onCall(1).callsArgWith(2, 'deserializeError');			
+			queryStub.onCall(1).callsArgWith(2, 'deserializeError');
 			// server.deserializeUser = function(uid, cb) {
 			// 	cb(new Error('deserializeError'))
 			// }
@@ -769,7 +769,7 @@
 
 			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);
 			// queryStub.onCall(1).callsArgWith(2, null, [{active: 1, id: 1}]);
-			
+
 			var _server = server.serviceScaff();
 			_server
 				.redis(fakeredis.createClient('test'))
@@ -837,17 +837,17 @@
 					sessionCookie = res.headers['set-cookie'][0];
 					mysql.query.restore()
 					done()
-				})			
+				})
 		})
 
 		beforeEach(function(){
 			queryStub = sinon.stub(mysql, 'query')
-		})	
+		})
 		afterEach(function(){
 			mysql.query.restore()
-		})				
+		})
 		it('200', function(done) {
-			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);			
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);
 			request(server.app)
 				.get('/roleA')
 				.set('cookie', sessionCookie)
@@ -855,7 +855,7 @@
 		});
 
 		// it('200 miss then match', function(done) {
-		// 	queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);		
+		// 	queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);
 		// 	request(server.app)
 		// 		.get('/roleBorC')
 		// 		.set('cookie', sessionCookie)
@@ -863,7 +863,7 @@
 		// });
 
 		it('401 incorrect roles', function(done) {
-			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);					
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);
 			request(server.app)
 				.get('/roleC')
 				.set('cookie', sessionCookie)
@@ -871,7 +871,7 @@
 		});
 
 		it('401 no user roles', function(done) {
-			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);		
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);
 			request(server.app)
 				.get('/noRoles')
 				.set('cookie', sessionCookie)
@@ -879,7 +879,7 @@
 		})
 
 		it('wrapper denied', function(done) {
-			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);		
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);
 			var testVal = 'denied'
 			server.get(
 				'/checkRolesWrapperDenied',
@@ -900,7 +900,7 @@
 		});
 
 		it('wrapper allowed', function(done) {
-			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);			
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1, roles: 'roleB,roleA'}]);
 			var testVal = 'denied'
 			server.get(
 				'/checkRolesWrapperAllowed',
@@ -1002,7 +1002,7 @@
 		})
 
 		it('login', function(done) {
-			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);	
+			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);
 			request(_server.app)
 				.post('/login')
 				.send({
@@ -1043,7 +1043,7 @@
 		});
 
 		it('remember_me and session cookies, previous session maintained', function(done) {
-			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);	
+			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);
 			request(_server.app)
 				.get('/set')
 				.set('cookie', [sessionCookie, rememberCookie])
@@ -1069,7 +1069,7 @@
 		});
 
 		it('logout', function(done) {
-			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);	
+			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);
 			request(_server.app)
 				.get('/logout')
 				.set('cookie', [sessionCookie, rememberCookie])
@@ -1086,7 +1086,7 @@
 		});
 
 		it('issueRememberMe error', function(done) {
-			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);	
+			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);
 			_server.issueRememberMe = function(u, _done) {
 				_done('issueRemeberMe error')
 			};
@@ -1454,10 +1454,10 @@
 					},
 				}
 			}, function(){
-				assert(_server.rabbit().addQueue);	
+				assert(_server.rabbit().addQueue);
 				done()
 			});
-			
+
 		});
 
 	})
@@ -1481,7 +1481,7 @@
 				//        name: 'replies',
 				//        subscribe: 'true',
 				//        durable: true
-				//    },					
+				//    },
 			}, function() {
 				// server.wascally.once('test.connection.failed', function(err){
 				// 	// assert.equal('No endpoints could be reached',err)
@@ -1503,7 +1503,7 @@
 							},
 							'queue:req-res.version.queue': {
 								subscribe: function() {}
-							}						
+							}
 
 						}
 					}
@@ -1587,14 +1587,14 @@
 
 				assert.equal(response.response, true);
 
-				// delete server._rabbitConfig.connection.prefix				
+				// delete server._rabbitConfig.connection.prefix
 
 				server.rabbitRequest('queue', {
 					test: true
 				}, function(err, response) {
 					if(err){
 						return done(err)
-					}					
+					}
 					assert.equal(response.response, true);
 					sinon.assert.calledOnce(stub)
 					Rabbus.Requester.restore();
@@ -1655,7 +1655,7 @@
 			server.rabbitRespond( 'queue', 2, function(err, response) {
 				if(err){
 					return done(err)
-				}				
+				}
 				assert.equal(response.response, true);
 				sinon.assert.calledOnce(stub)
 				Rabbus.Responder.restore();
@@ -1686,7 +1686,7 @@
 			server.rabbitRespond('queue', 'string', function(err, response) {
 				if(err){
 					return done(err)
-				}				
+				}
 				assert.equal(response.response, true);
 				sinon.assert.calledOnce(stub)
 				Rabbus.Responder.restore();
@@ -1715,7 +1715,7 @@
 
 			_server.app.rabbitSend( 'queue', {
 				test: true
-			});			
+			});
 		});
 
 		it('rabbitSend version', function(done) {
@@ -1738,7 +1738,7 @@
 
 			_server.rabbitSend( 'queue', {
 				test: true
-			});			
+			});
 		});
 
 		it('rabbitSend inherits', function(done) {
@@ -1764,13 +1764,13 @@
 
 			var spy = sinon.spy(Rabbus, 'Sender');
 
-			
+
 
 			server.rabbitSend( 'queue', {
 				test: true
 			}, function(err) {
 				assert(!err);
-	
+
 				// delete server._rabbitConfig.connection.prefix
 
 				server.rabbitSend('queue', {
@@ -1877,7 +1877,7 @@
 		// 	}
 		// 	return cb(null, user)
 		// }
-		// 
+		//
 
 		_localServer.authenticationLogin(function(req, u, p, cb) {
 			if (u === 'user' && p === 'password') {

@@ -1040,36 +1040,46 @@
 			}
 			return
 		}
-		var email = require('../lib/email');
+		var email = require('./lib/email');
 		email.send(this.config('email'), msg, subject, to, from, cb);
 	}
 
 	Scaff.prototype.errorHandler = function() {
+
 		debug('add errorHandler')
 		var t = this;
+
 		this.app.use(function(error, req, res, next) {
 
 			if (!t.app.get('dontPrintErrors')) {
-				console.error('errorHandler')
-				console.error(error)
 				console.error(error.stack);
 			}
 
 			res.status(500).send(error.toString());
 
 			if(t.config('email')){
-				var msg = '<p>User: ' + JSON.stringify(req.user, null, 4) + '</p>';
 
-				msg += '<p>Request: ' + req.url + '</p>';
-				msg += '<p>Query: ' + JSON.stringify(req.query, null, 4) + '</p>';
+				var msg = ''//'<html><body>'
 
-				msg += '<p>Error: ' + JSON.stringify(error.stack, null, 4) + '</p>';
+				msg += 'Path: ' + req.path + "\n\n";
+				msg += 'Query: ' + JSON.stringify(req.query, null, 4) + "\n\n";
+				msg += 'Body: ' + JSON.stringify(req.body, null, 4) + "\n\n";
+				msg += 'Url: ' + req.url + "\n\n";
+				msg += "-------------------------------\n\n"
+				msg += 'Error: ' + error.stack.split("\n").join("\n") + "\n\n";
+				msg += "-------------------------------\n\n"
+				msg += 'User: ' + JSON.stringify(req.user, null, 4) + "\n\n";
+				// msg += '<p>Request: ' + req.url + '</p>';
+				// msg += '<p>Query: ' + JSON.stringify(req.query, null, 4) + '</p>';
+				// msg += '<p>Error: ' + JSON.stringify(error.stack, null, 4) + '</p>';
+				// msg += '<p>User: ' + JSON.stringify(req.user, null, 4) + '</p>';
+				// msg += '</body></html>'
 
-				var email = require('../lib/email');
+				var email = require('./lib/email');
 				email.send(
 					t.config('email'),
 					msg,
-					'PatentCAM Error',
+					'PatentCAM Error: ' + req.path,
 					next
 				)
 			}
@@ -1081,28 +1091,6 @@
 
 		return this;
 	}
-	// Scaff.prototype.errorHandlerEmail = function() {
-	// 	debug('add errorHandlerEmail')
-	// 	var t = this;
-	// 	this.app.use(function(error, req, res, next) {
-	//
-	// 		if (!t.app.get('dontPrintErrors')) {
-	// 			console.error('errorHandler')
-	// 			console.error(error)
-	// 			console.error(error.stack);
-	// 		}
-	//
-	// 		res.status(500).send(error.toString());
-	//
-	//
-	// 		if(typeof next === 'function'){
-	// 			next()
-	// 		}
-	//
-	// 	});
-	//
-	// 	return this;
-	// }
 
 	//----------------------------------------
 	// routes
