@@ -1,13 +1,13 @@
 {
   "name": "service-scaff",
-  "version": "0.16.5",
+  "version": "0.16.1",
   "description": "resource scaff for services",
   "main": "index.js",
   "repository": "https://github.com/johnmarkg/service-scaff",
   "scripts": {
     "test": "make test",
     "coveralls": "cat ./coverage/lcov.info | ./node_modules/.bin/coveralls",
-    "pretest": "./clean-rabbus"
+    "postinstall": "./clean-rabbus"
   },
   "keywords": [
     "express",
@@ -49,9 +49,5 @@
     "pre-commit": "^1.1.1",
     "sinon": "1.16.1",
     "supertest": "^1.0.1"
-    },
-    "pre-commit": [
-        "pretest",
-        "test"
-    ]
+    }
 }
