@@ -1044,11 +1044,23 @@
 		email.send(this.config('email'), msg, subject, to, from, cb);
 	}
 
+	function uncaught(label, error){
+		var os = require("os");
+		var msg = 'Error: ' + error.stack.split("\n").join("\n") + "\n\n";
+		msg += 'Host: ' + os.hostname();
+		var subject = 'PatentCAM ' + label + ': ' + __filename;
+		this.sendEmail(msg, subject)
+	}
 	Scaff.prototype.errorHandler = function() {
 
 		debug('add errorHandler')
 		var t = this;
 
+		if(t.config('email')){
+			process.on('uncaughtException', uncaught.bind(t, 'uncaughtException') )
+			process.on('unhandledRejection', uncaught.bind(t, 'unhandledRejection') )
+		}
+		
 		this.app.use(function(error, req, res, next) {
 
 			if (!t.app.get('dontPrintErrors')) {
