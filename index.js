@@ -1051,7 +1051,9 @@
 		var msg = 'Error: ' + error.stack.split("\n").join("\n") + "\n\n";
 		msg += 'Host: ' + os.hostname();
 		var subject = 'PatentCAM ' + label + ': ' + __filename;
-		this.sendEmail(msg, subject)
+		this.sendEmail(msg, subject, function(){
+			throw error
+		})
 	}
 	Scaff.prototype.errorHandler = function() {
 
