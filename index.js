@@ -1032,7 +1032,7 @@
 	}
 
 
-	Scaff.prototype.sendEmail = function(msg, subject, to, from, cb) {
+	Scaff.prototype.sendEmail = function(msg, subject, html, to, from, cb) {
 
 		if(!this.config('email')){
 			if(typeof cb == 'function'){
@@ -1041,7 +1041,7 @@
 			return
 		}
 		var email = require('./lib/email');
-		email.send(this.config('email'), msg, subject, to, from, cb);
+		email.send(this.config('email'), msg, subject, html, to, from, cb);
 	}
 
 	function uncaught(label, error){
@@ -1060,7 +1060,7 @@
 			process.on('uncaughtException', uncaught.bind(t, 'uncaughtException') )
 			process.on('unhandledRejection', uncaught.bind(t, 'unhandledRejection') )
 		}
-		
+
 		this.app.use(function(error, req, res, next) {
 
 			if (!t.app.get('dontPrintErrors')) {
