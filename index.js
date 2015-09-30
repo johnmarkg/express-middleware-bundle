@@ -72,6 +72,8 @@
 		this.app.getStatusAll = this.getStatusAll.bind(this)
 		this.app.incrementStatus = this.incrementStatus.bind(this)
 
+		this.app.sendEmail = this.sendEmail.bind(this);
+
 		return this;
 	};
 
