@@ -537,15 +537,14 @@
 		var p = [string]
 		this._mysql.query(q, p, function(err, rows) {
 			debug('deserializeUser query cb')
-			debug(JSON.stringify(arguments))
 			if (err) {
 				return done(err)
 			}
-			debug(rows[0].roles)
+			// debug(rows[0].roles)
 			if(rows[0].roles){
 
 				var roles = rows[0].roles.split(',');
-				debug(roles)
+				debug(rows[0].id + ' roles: ' + roles)
 				rows[0].roles = {};
 
 				for(var i in roles){
@@ -554,7 +553,6 @@
 			}
 
 			delete rows[0].password;
-			debug(JSON.stringify(rows[0]))
 			return done(null, rows[0])
 		})
 	}
