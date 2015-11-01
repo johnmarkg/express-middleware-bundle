@@ -381,10 +381,15 @@
 		debug('addQueryAndBodyParser')
 		var bodyParser = require('body-parser');
 
-		this.app.use(bodyParser.json());
-		this.app.use(bodyParser.urlencoded({
-			extended: false
-		}));
+		var config = {
+			extended: true
+		}
+		if(this.maxBodySize){
+			config.limit = '2mb'
+		}
+
+		this.app.use(bodyParser.json(config));
+		this.app.use(bodyParser.urlencoded(config));
 
 		return this;
 	}
