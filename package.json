@@ -27,6 +27,7 @@
     "express": "5.0.0-alpha.2",
     "express-session": "^1.11.3",
     "jade": "^1.11.0",
+    "microservice-register": "^0.3.0",
     "mongodb": "^2.0.42",
     "morgan": "^1.6.1",
     "mysql": "2.9.0",
@@ -49,5 +50,5 @@
     "pre-commit": "^1.1.1",
     "sinon": "1.16.1",
     "supertest": "^1.0.1"
-    }
+  }
 }

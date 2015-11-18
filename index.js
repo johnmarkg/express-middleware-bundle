@@ -77,6 +77,29 @@
 		return this;
 	};
 
+	Scaff.prototype.register = function(label, checkPath, aliases){
+		if(!this.config.register){
+			throw new Error('no register config set')
+		}
+		this._register = label;
+		this._registerCheckPath = checkPath
+		this._registerAliases = aliases
+
+		return this;
+	}
+
+	Scaff.prototype.connectToResources = function(resources) {
+		if(typeof resources == 'string'){
+			resources = [resources]
+		}
+		var t = this;
+		resources.forEach(function(r){
+			t[r].call(r, t.config[r])
+		})
+
+		return this;
+	}
+
 	//----------------------------------------
 	// setters/getters
 	//----------------------------------------
@@ -85,17 +108,20 @@
 			return this._redis;
 		}
 
+		var client;
+
 		// janky client object detection
 		if(_redis._events){
 			debug('passed redis client');
+			client = _redis
 		}
 		else{
 			debug('passed redis config');
 			this._redisConfig = _redis;
-			_redis = require('redis').createClient(_redis.port, _redis.host, _redis.options)
+			client = require('redis').createClient(_redis.port, _redis.host, _redis.options)
 		}
 
-		this._redis = _redis;
+		this._redis = client;
 		return this;
 	}
 
@@ -162,6 +188,12 @@
 	}
 
 	Scaff.prototype.config = function(key,_config) {
+
+		// if(typeof key == 'object'){
+		// 	this.config = key;
+		// 	return this;
+		// }
+
 		if(!this.configs){
 			this.configs = {}
 		}
@@ -217,6 +249,12 @@
 	}
 	Scaff.prototype.rabbitRequest = function(label, msg, cb){
 		return rabbit.request.call(this, label, msg, cb)
+	}
+	Scaff.prototype.rabbitReplyQueue = function(label){
+		if(this.config.rabbit){
+			this.config.rabbit.replyQueue = rabbit.replyQueue(label)
+		}
+		return this;
 	}
 
 	//----------------------------------------
@@ -964,14 +1002,22 @@
 		}
 
 
-		app.listen(port, function() {
+		app.listen(port, function(err) {
 			t.server = this;
 			debug(
 				process.title + " listening on port %d (pid: " + process.pid + ")",
 				this.address().port
 			);
 
-
+			if(t._register){
+				require('microservice-register')({
+			        service: t._register,
+					aliases:  t._registerAliases,
+			        port: this.address().port,
+			        checkPath: t._registerCheckPath || '/',
+			        routers: (t.config.register ? t.config.register.routers : [])
+			    })
+			}
 
 
 			if (process.send) {
@@ -979,7 +1025,7 @@
 				process.send('online');
 			}
 			if (cb && typeof cb === 'function') {
-				cb(null, this.address().port);
+				cb(err, this.address().port);
 			}
 		});
 
@@ -1150,5 +1196,8 @@
 		// console.info(fn)
 		// return fn
 	}
+
+
+
 
 })(this);
