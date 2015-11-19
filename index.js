@@ -79,7 +79,8 @@
 
 	Scaff.prototype.register = function(label, checkPath, aliases){
 		if(!this.config('register')){
-			throw new Error('no register config set')
+			console.info('skipping registration, no config found')
+			return this;
 		}
 		this._register = label;
 		this._registerCheckPath = checkPath
