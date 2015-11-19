@@ -78,7 +78,7 @@
 	};
 
 	Scaff.prototype.register = function(label, checkPath, aliases){
-		if(!this.config.register){
+		if(!this.config('register')){
 			throw new Error('no register config set')
 		}
 		this._register = label;
@@ -94,7 +94,7 @@
 		}
 		var t = this;
 		resources.forEach(function(r){
-			t[r].call(r, t.config[r])
+			t[r].call(t, t.config(r))
 		})
 
 		return this;
@@ -124,7 +124,9 @@
 		this._redis = client;
 		return this;
 	}
-
+	Scaff.prototype.mongodb = function(_mongo){
+ 		return this.mongo(_mongo)
+	}
     Scaff.prototype.mongo = function(_mongo) {
 		if(typeof _mongo === 'undefined'){
 			return this._mongo;
@@ -189,18 +191,18 @@
 
 	Scaff.prototype.config = function(key,_config) {
 
-		// if(typeof key == 'object'){
-		// 	this.config = key;
-		// 	return this;
-		// }
+		if(typeof key == 'object'){
+			this._config = key;
+			return this;
+		}
 
-		if(!this.configs){
-			this.configs = {}
+		if(!this._config){
+			this._config = {}
 		}
 		if(typeof _config === 'undefined'){
-			return this.configs[key]
+			return this._config[key]
 		}
-		this.configs[key] = _config
+		this._config[key] = _config
 		return this;
 	}
 
@@ -1010,12 +1012,13 @@
 			);
 
 			if(t._register){
+
 				require('microservice-register')({
 			        service: t._register,
 					aliases:  t._registerAliases,
 			        port: this.address().port,
 			        checkPath: t._registerCheckPath || '/',
-			        routers: (t.config.register ? t.config.register.routers : [])
+			        routes: t.config('register').routers
 			    })
 			}
 
