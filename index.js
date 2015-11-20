@@ -1,11 +1,13 @@
 (function() {
 
+	var util = require('util');
+    var events = require('events');
+
 	var fs = require('fs');
 	var debug = require('debug')('service-scaff')
 
-
-
 	var express = require('express');
+	// var Q = require('q');
 
 	// var redis = require('redis');
 	var RedisStore = require('connect-redis')(require('express-session'));
@@ -21,14 +23,17 @@
 
 	function Scaff() {
 
+		events.EventEmitter.call(this)
+
 		this.rememberMeCookieLabel = 'rememberMe'
 		this.sessionCookieLabel = 'sessionId'
-
 
 		this.debug = debug;
 
 		return this;
 	}
+
+	util.inherits(Scaff, events)
 
 	// export constructor
 	exports = module.exports = new Scaff();
@@ -94,8 +99,27 @@
 			resources = [resources]
 		}
 		var t = this;
+		// var promises = []
+
+		var connected = 0;
+		var failed = 0;
+		var count = resources.length
+
 		resources.forEach(function(r){
+			debug('connectToResources: ' + r)
 			t[r].call(t, t.config(r))
+			t.once(r + '-connected', function(){
+				debug('connectToResources, connected: ' + r)
+				connected++;
+				if(connected == count){
+					t.emit('resources-connected')
+				}
+			})
+			t.once(r + '-failed', function(){
+				debug('connectToResources, failed: ' + r)
+				failed++;
+				t.emit('resources-failed', r)
+			})
 		})
 
 		return this;
@@ -109,17 +133,23 @@
 			return this._redis;
 		}
 
+
 		var client;
+		var t = this;
 
 		// janky client object detection
 		if(_redis._events){
 			debug('passed redis client');
 			client = _redis
+			t.emit('redis-connected', client)
 		}
 		else{
 			debug('passed redis config');
 			this._redisConfig = _redis;
 			client = require('redis').createClient(_redis.port, _redis.host, _redis.options)
+			client.once('connected', function(){
+				t.emit('redis-connected', client)
+			})
 		}
 
 		this._redis = client;
@@ -137,6 +167,8 @@
 		// janky client object detection
 		if(_mongo._events){
 			debug('passed mongo client')
+			t.emit('mongo-connected', _mongo)
+			t.emit('mongodb-connected', _mongo)
 		}
 		else{
 			 this._mongoConfig = _mongo;
@@ -144,9 +176,16 @@
 			var MongoClient = require('mongodb').MongoClient;
 			var mongoURI = 'mongodb://' + _mongo.host + ':' + _mongo.port + '/' + _mongo.db;
 			MongoClient.connect(mongoURI, function (err, _db) {
-				if(err){ throw err; }
+				if(err){
+					t.emit('mongo-failed', err)
+					t.emit('mongodb-failed', err)
+					return
+					// throw err;
+				}
 				// _mongo = _db;
 				t._mongo = _db;
+				t.emit('mongo-connected', _db)
+				t.emit('mongodb-connected', _db)
 			})
 
 
@@ -160,13 +199,18 @@
 			return this._sphinxql;
 		}
 
+		var t = this
 		// janky client object detection
 		if(_sphinxql._events){
 			debug('passed sphinxql client')
+			t.emit('sphinxql-connected', _sphinxql)
 		}
 		else{
 			 this._sphinxqlConfig = _sphinxql;
 			_sphinxql = require('mysql').createPool(_sphinxql)
+			_sphinxql.on('connection', function(){
+				t.emit('sphinxql-connected', _sphinxql)
+			})
 		}
 		this._sphinxql = _sphinxql;
 		return this;
@@ -177,6 +221,8 @@
 			return this._mysql;
 		}
 
+		var t = this
+
 		// janky client object detection
 		if(_mysql._events){
 			debug('passed mysql client')
@@ -184,6 +230,9 @@
 		else{
 			 this._mysqlConfig = _mysql;
 			_mysql = require('mysql').createPool(_mysql)
+			_mysql.on('connection', function(){
+				t.emit('sphinxql-connected', _mysql)
+			})
 		}
 		this._mysql = _mysql;
 
@@ -231,12 +280,15 @@
 
 		this._rabbitConfig = config;
 	    this.wascally = require( 'wascally' );
+		var t = this;
 
 	    this.wascally.configure(config).done(function(){
 
 	    	if(typeof cb === 'function'){
 	    		cb();
 	    	}
+			t.emit('rabbit-connected', t.wascally)
+
 	    });
 
 		return this;

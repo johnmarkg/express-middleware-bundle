@@ -2144,4 +2144,38 @@
 		return _mysql;
 	}
 
+
+	describe('events', function() {
+		it('redis', function(done){
+			var _server = server.serviceScaff();
+			_server.on('redis-connected', function(client){
+				assert(client._events)
+				done();
+			})
+			_server.redis(fakeredis.createClient('test'))
+		})
+	})
+
+	describe('connectToResources', function() {
+		it('redis', function(done){
+			var _server = server.serviceScaff();
+
+			// _server.on('redis-connected', function(){
+			// 	console.info('redis-connected')
+			// })
+
+
+			_server.on('resources-connected', function(){
+				done();
+			})
+
+			//
+
+			// _server.config('redis')
+			_server.connectToResources(['redis'])
+			_server.redis(fakeredis.createClient('test'))
+			// _server.config('redis', fakeredis.createClient('test'))
+		})
+	})
+
 }).call(this);
