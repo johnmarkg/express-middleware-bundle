@@ -3,4 +3,10 @@
 # comment out console.log call in rabbus
 # keep console.log(err.stack);
 
-find node_modules/rabbus/rabbus/lib -name '*.js' -print | xargs sed -i 's: \(console\.log(\"\):\/\/\1:g'
+if [ -d node_modules/rabbus ]
+then
+    find node_modules/rabbus/rabbus/lib  -name '*.js' -print | xargs sed -i 's: \(console\.log(\"\):\/\/\1:g'
+elif [ -d ../../node_modules/rabbus ]
+then
+    find ../../node_modules/rabbus/rabbus/lib -name '*.js' -print | xargs sed -i 's: \(console\.log(\"\):\/\/\1:g'
+fi
