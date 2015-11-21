@@ -105,22 +105,34 @@
 		var failed = 0;
 		var count = resources.length
 
+		var time = 1000 * 30
+		var timer = setTimeout(function(){
+			t.emit('resources-failed', 'timeout: ' + time)
+		}, time)
+
 		resources.forEach(function(r){
 			debug('connectToResources: ' + r)
-			t[r].call(t, t.config(r))
+
+
+
 			t.once(r + '-connected', function(){
 				debug('connectToResources, connected: ' + r)
 				connected++;
 				if(connected == count){
+					clearTimeout(timer)
 					t.emit('resources-connected')
 				}
 			})
 			t.once(r + '-failed', function(){
 				debug('connectToResources, failed: ' + r)
 				failed++;
+				clearTimeout(timer)
 				t.emit('resources-failed', r)
 			})
+
+			t[r].call(t, t.config(r))
 		})
+
 
 		return this;
 	}
@@ -147,7 +159,7 @@
 			debug('passed redis config');
 			this._redisConfig = _redis;
 			client = require('redis').createClient(_redis.port, _redis.host, _redis.options)
-			client.once('connected', function(){
+			client.once('ready', function(){
 				t.emit('redis-connected', client)
 			})
 		}
@@ -208,9 +220,7 @@
 		else{
 			 this._sphinxqlConfig = _sphinxql;
 			_sphinxql = require('mysql').createPool(_sphinxql)
-			_sphinxql.on('connection', function(){
-				t.emit('sphinxql-connected', _sphinxql)
-			})
+			t.emit('sphinxql-connected', _sphinxql)
 		}
 		this._sphinxql = _sphinxql;
 		return this;
@@ -226,13 +236,12 @@
 		// janky client object detection
 		if(_mysql._events){
 			debug('passed mysql client')
+			t.emit('mysql-connected', _mysql)
 		}
 		else{
 			 this._mysqlConfig = _mysql;
 			_mysql = require('mysql').createPool(_mysql)
-			_mysql.on('connection', function(){
-				t.emit('sphinxql-connected', _mysql)
-			})
+			t.emit('mysql-connected', _mysql)
 		}
 		this._mysql = _mysql;
 
