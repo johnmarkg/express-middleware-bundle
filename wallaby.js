@@ -1,4 +1,5 @@
-module.exports = function (wallaby) {
+// module.exports = function (wallaby) {
+module.exports = function () {
   return {
     files: [
       'lib/*.js',
