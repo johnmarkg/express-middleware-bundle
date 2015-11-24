@@ -1066,33 +1066,47 @@
 		}
 
 
-		app.listen(port, function(err) {
-			t.server = this;
-			debug(
-				process.title + " listening on port %d (pid: " + process.pid + ")",
-				this.address().port
+		if(t._register){
+			var host = t.config('register').routers[0].host
+			var port = t.config('register').routers[0].port
+
+			var seaport = require('seaport');
+			var ports = seaport.connect({
+				host: host || 'localhost',
+				port: 59001,
+			});
+
+			var _port = app.listen(
+				ports.register(t._register, { aliases: t._registerAliases } ),
+
+				function(err){
+					up(err, _port)
+				}
 			);
+		}
+		else{
 
-			if(t._register){
+			app.listen(port, function(err) {
+				t.server = this;
+				debug(
+					process.title + " listening on port %d (pid: " + process.pid + ")",
+					this.address().port
+				);
 
-				require('microservice-register')({
-			        service: t._register,
-					aliases:  t._registerAliases,
-			        port: this.address().port,
-			        checkPath: t._registerCheckPath || '/',
-			        routes: t.config('register').routers
-			    })
+				up(err, this.address().port)
+			});
+
+			function up(err, _port){
+
+				if (process.send) {
+					// for naught
+					process.send('online');
+				}
+				if (cb && typeof cb === 'function') {
+					cb(err, _port);
+				}
 			}
-
-
-			if (process.send) {
-				// for naught
-				process.send('online');
-			}
-			if (cb && typeof cb === 'function') {
-				cb(err, this.address().port);
-			}
-		});
+		}
 
 		/* istanbul ignore next */
 		process.on('message', function(message) {

@@ -37,6 +37,7 @@
     "passport-remember-me": "0.0.1",
     "rabbus": "^0.5.0",
     "redis": "^2.3.1",
+    "seaport": "^2.0.9",
     "wascally": "^0.2.7"
   },
   "devDependencies": {
