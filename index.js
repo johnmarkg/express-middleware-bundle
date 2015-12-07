@@ -137,6 +137,17 @@
 		return this;
 	}
 
+	Scaff.prototype.startOnResourcesConnected = function(_port){
+		var t = this;
+		var pjson = require(module.parent.filename + '/../package.json');
+
+		this.on('resources-connected', function(){
+		    t.start(_port || 0, function(err, port) {
+				console.info(module.parent.filename + ' ' + pjson.version + ' started on port ' + port);
+		    });
+		})
+	}
+
 	//----------------------------------------
 	// setters/getters
 	//----------------------------------------
