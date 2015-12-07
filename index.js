@@ -1081,7 +1081,7 @@
 				ports.register(t._register, { aliases: t._registerAliases } ),
 
 				function(err){
-					up(err, _port)
+					up(err, _port.address().port)
 				}
 			);
 		}
@@ -1096,16 +1096,16 @@
 
 				up(err, this.address().port)
 			});
+		}
 
-			function up(err, _port){
+		function up(err, _port){
 
-				if (process.send) {
-					// for naught
-					process.send('online');
-				}
-				if (cb && typeof cb === 'function') {
-					cb(err, _port);
-				}
+			if (process.send) {
+				// for naught
+				process.send('online');
+			}
+			if (cb && typeof cb === 'function') {
+				cb(err, _port);
 			}
 		}
 
