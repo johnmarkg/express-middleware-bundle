@@ -236,14 +236,15 @@
 		// janky client object detection
 		if(_mysql._events){
 			debug('passed mysql client')
-			t.emit('mysql-connected', _mysql)
+			this._mysql = _mysql;
+			t.emit('mysql-connected', this._mysql)
 		}
 		else{
-			 this._mysqlConfig = _mysql;
-			_mysql = require('mysql').createPool(_mysql)
-			t.emit('mysql-connected', _mysql)
+			this._mysqlConfig = _mysql;
+			this._mysql = require('mysql').createPool(_mysql)
+			t.emit('mysql-connected', this._mysql)
 		}
-		this._mysql = _mysql;
+
 
 		return this;
 	}
