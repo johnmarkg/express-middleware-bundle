@@ -143,6 +143,7 @@
 
 		this.on('resources-connected', function(){
 		    t.start(_port || 0, function(err, port) {
+				if(err){ throw err; }
 				console.info(module.parent.filename + ' ' + pjson.version + ' started on port ' + port);
 		    });
 		})
