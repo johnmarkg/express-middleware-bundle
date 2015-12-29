@@ -278,37 +278,7 @@
 	//----------------------------------------
 	// passport
 	//----------------------------------------
-	Scaff.prototype.serializeUser = function(user, done) {
-		debug('default serializeUser: ' + JSON.stringify(user));
-		done(null, user);
-	}
 
-	Scaff.prototype.deserializeUser = function(string, done) {
-		debug('default deserializeUser: ' + string);
-
-		var q = 'select u.* , GROUP_CONCAT( role ) roles from users u  join user_roles r on(u.id=r.user_id)  where id = ? group by user_id'
-		var p = [string]
-		this._mysql.query(q, p, function(err, rows) {
-			debug('deserializeUser query cb')
-			if (err) {
-				return done(err)
-			}
-			// debug(rows[0].roles)
-			if(rows[0].roles){
-
-				var roles = rows[0].roles.split(',');
-				debug(rows[0].id + ' roles: ' + roles)
-				rows[0].roles = {};
-
-				for(var i in roles){
-					rows[0].roles[roles[i]] = true;
-				}
-			}
-
-			delete rows[0].password;
-			return done(null, rows[0])
-		})
-	}
 
 	Scaff.prototype.initPassport = function() {
 		this.passport.deserializeUser(this.deserializeUser.bind(this));
