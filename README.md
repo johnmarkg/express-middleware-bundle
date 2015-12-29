@@ -7,7 +7,31 @@ Express bundled with Passport authentication, Redis sessions, morgan logs
 
 ## Usage
 
+
+
 ```
+
+var resources = {
+	redis: redisConfigOrClient,
+	mysql: mysqlConfigOrClient,
+	mongo: mongoConfigOrClient,
+	sphinxql: sphinxqlConfigOrClient,
+	rabbit: rabbitConfigOrClient
+}
+
+var server = require('service-scaff');
+server
+	.resources(config)
+	.web()
+	.register('my-service', '/', ['my-service-alias'])
+	.startOnResourcesConnected()
+
+
+
+
+
+// OLD
+
 var server = require('express-middleware-bundle');
 
 //------------------------------------
@@ -30,7 +54,7 @@ server.mysql({
 server.web()
 
 //------------------------------------
-// mount static assest to path 
+// mount static assest to path
 //------------------------------------
 server.addStaticDir('./css', 'static');
 server.addStaticDir('./js', 'static');
@@ -55,7 +79,7 @@ server.get('/logout', server.logout.bind(server));
 // add routes that dont need authentication
 //------------------------------------
 server.get(
-	'/nonauth-route', 
+	'/nonauth-route',
 	function(req,res,next){
 		res.end('you are NOT authenticated')
 	}
@@ -67,9 +91,9 @@ server.get(
 server.use(server.authenticated.bind(server));
 
 server.get(
-	'/auth-route', 
+	'/auth-route',
 	function(req,res,next){
-		res.end('you are authenticated')	
+		res.end('you are authenticated')
 	}
 )
 
@@ -77,10 +101,10 @@ server.get(
 // check user roles
 //------------------------------------
 server.get(
-	'/needARole', 
+	'/needARole',
 	server.checkRoles.bind(server,['roleA','roleB'])
 	function(req,res,next){
-		res.end('you have either roleA or roleB')	
+		res.end('you have either roleA or roleB')
 	}
 )
 
@@ -88,7 +112,7 @@ server.get(
 // check user roles for conditional middleware
 //------------------------------------
 server.get(
-	'/needARoleForSomeMiddleware', 
+	'/needARoleForSomeMiddleware',
 	getSomeData,
 	server.checkRolesWrapper.bind(server,['roleA'], conditionalMiddlewareToModifyData),
 	returnData

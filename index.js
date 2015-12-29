@@ -2,24 +2,17 @@
 
 	var util = require('util');
     var events = require('events');
-
-	var fs = require('fs');
 	var debug = require('debug')('service-scaff')
-
 	var express = require('express');
-	// var Q = require('q');
-
-	// var redis = require('redis');
-	var RedisStore = require('connect-redis')(require('express-session'));
-
+	// var RedisStore = require('connect-redis')(require('express-session'));
 	var Passport = require('passport').Passport
 	var LocalStrategy = require('passport-local').Strategy;
 	var LocalAPIKeyStrategy = require('passport-localapikey').Strategy;
 	var RememberMeStrategy = require('passport-remember-me').Strategy;
 
+	// var sessions = require('./lib/sessions')
 	var morganTokens = require('./lib/morgan-tokens')
-
-	var rabbit = require('./lib/rabbit')
+	// var rabbit = require('./lib/rabbit')
 
 	function Scaff() {
 
@@ -30,10 +23,37 @@
 
 		this.debug = debug;
 
+		var lib = [
+			'command-line',
+			'middleware',
+			'static',
+			'email',
+			'sessions',
+			'status',
+			'config',
+			'rabbit',
+			'roles',
+			'resources/rabbit',
+			'resources/redis',
+			'resources/mysql',
+			'resources/mongo',
+			'resources/sphinxql',
+		]
+
+		lib.forEach(function(file){
+			var mod = require('./lib/' + file + '.js');
+			for (var fnName in mod) {
+				Scaff.prototype[fnName] = mod[fnName];
+			}
+		})
+
 		return this;
 	}
 
 	util.inherits(Scaff, events)
+
+
+
 
 	// export constructor
 	exports = module.exports = new Scaff();
@@ -49,6 +69,8 @@
 
 
 	Scaff.prototype.express = function() {
+
+		if(this.app){ return this; }
 
 		// dont want cached object
 		this.passport = new Passport();
@@ -99,11 +121,11 @@
 			resources = [resources]
 		}
 		var t = this;
-		// var promises = []
 
 		var connected = 0;
 		var failed = 0;
-		var count = resources.length
+		// var count = resources.length
+		var connectedHash = {};
 
 		var time = 1000 * 30
 		var timer = setTimeout(function(){
@@ -111,227 +133,51 @@
 		}, time)
 
 		resources.forEach(function(r){
+			connectedHash[r] = false;
 			debug('connectToResources: ' + r)
-
-
 
 			t.once(r + '-connected', function(){
 				debug('connectToResources, connected: ' + r)
-				connected++;
-				if(connected == count){
+				// console.info(r + ' connected');
+
+				delete connectedHash[r]
+				if(Object.keys(connected).length == 0){
 					clearTimeout(timer)
 					t.emit('resources-connected')
 				}
 			})
 			t.once(r + '-failed', function(){
 				debug('connectToResources, failed: ' + r)
-				failed++;
+				connectedHash[r] = failed;
 				clearTimeout(timer)
 				t.emit('resources-failed', r)
 			})
 
 			t[r].call(t, t.config(r))
-		})
-
+		});
 
 		return this;
 	}
 
 	Scaff.prototype.startOnResourcesConnected = function(_port){
 		var t = this;
-		var pjson = require(module.parent.filename + '/../package.json');
+
+		var version = ''
+		try{
+			var pjson = require(module.parent.filename + '/../package.json');
+			version  = pjson.version
+		}
+		catch(e){
+			// console.info('package.json not found')
+		}
+
 
 		this.on('resources-connected', function(){
 		    t.start(_port || 0, function(err, port) {
 				if(err){ throw err; }
-				console.info(module.parent.filename + ' ' + pjson.version + ' started on port ' + port);
+				console.info(module.parent.filename + ' ' + version + ' started on port ' + port);
 		    });
 		})
-	}
-
-	//----------------------------------------
-	// setters/getters
-	//----------------------------------------
-	Scaff.prototype.redis = function(_redis) {
-		if(typeof _redis === 'undefined'){
-			return this._redis;
-		}
-
-
-		var client;
-		var t = this;
-
-		// janky client object detection
-		if(_redis._events){
-			debug('passed redis client');
-			client = _redis
-			t.emit('redis-connected', client)
-		}
-		else{
-			debug('passed redis config');
-			this._redisConfig = _redis;
-			client = require('redis').createClient(_redis.port, _redis.host, _redis.options)
-			client.once('ready', function(){
-				t.emit('redis-connected', client)
-			})
-		}
-
-		this._redis = client;
-		return this;
-	}
-	Scaff.prototype.mongodb = function(_mongo){
- 		return this.mongo(_mongo)
-	}
-    Scaff.prototype.mongo = function(_mongo) {
-		if(typeof _mongo === 'undefined'){
-			return this._mongo;
-		}
-
-		var t = this;
-		// janky client object detection
-		if(_mongo._events){
-			debug('passed mongo client')
-			t.emit('mongo-connected', _mongo)
-			t.emit('mongodb-connected', _mongo)
-		}
-		else{
-			 this._mongoConfig = _mongo;
-
-			var MongoClient = require('mongodb').MongoClient;
-			var mongoURI = 'mongodb://' + _mongo.host + ':' + _mongo.port + '/' + _mongo.db;
-			MongoClient.connect(mongoURI, function (err, _db) {
-				if(err){
-					t.emit('mongo-failed', err)
-					t.emit('mongodb-failed', err)
-					return
-					// throw err;
-				}
-				// _mongo = _db;
-				t._mongo = _db;
-				t.emit('mongo-connected', _db)
-				t.emit('mongodb-connected', _db)
-			})
-
-
-		}
-
-        return this;
-    }
-
-	Scaff.prototype.sphinxql = function(_sphinxql) {
-		if(typeof _sphinxql === 'undefined'){
-			return this._sphinxql;
-		}
-
-		var t = this
-		// janky client object detection
-		if(_sphinxql._events){
-			debug('passed sphinxql client')
-			t.emit('sphinxql-connected', _sphinxql)
-		}
-		else{
-			 this._sphinxqlConfig = _sphinxql;
-			_sphinxql = require('mysql').createPool(_sphinxql)
-			t.emit('sphinxql-connected', _sphinxql)
-		}
-		this._sphinxql = _sphinxql;
-		return this;
-	}
-
-	Scaff.prototype.mysql = function(_mysql) {
-		if(typeof _mysql === 'undefined'){
-			return this._mysql;
-		}
-
-		var t = this
-
-		// janky client object detection
-		if(_mysql._events){
-			debug('passed mysql client')
-			this._mysql = _mysql;
-			t.emit('mysql-connected', this._mysql)
-		}
-		else{
-			this._mysqlConfig = _mysql;
-			this._mysql = require('mysql').createPool(_mysql)
-			t.emit('mysql-connected', this._mysql)
-		}
-
-
-		return this;
-	}
-
-	Scaff.prototype.config = function(key,_config) {
-
-		if(typeof key == 'object'){
-			this._config = key;
-			return this;
-		}
-
-		if(!this._config){
-			this._config = {}
-		}
-		if(typeof _config === 'undefined'){
-			return this._config[key]
-		}
-		this._config[key] = _config
-		return this;
-	}
-
-	Scaff.prototype.cookieConfig = function(_config) {
-		this._cookieConfig = _config;
-		return this;
-	}
-
-	//----------------------------------------
-	// rabbit
-	//----------------------------------------
-	Scaff.prototype.rabbit = function(wascallyConfig, cb) {
-		if(typeof wascallyConfig === 'undefined'){
-			return this.wascally;
-		}
-
-		var config = {};
-
-		if(!wascallyConfig.connection){
-			config.connection = wascallyConfig
-		}
-		else{
-			config = wascallyConfig
-		}
-
-		this._rabbitConfig = config;
-	    this.wascally = require( 'wascally' );
-		var t = this;
-
-	    this.wascally.configure(config).done(function(){
-
-	    	if(typeof cb === 'function'){
-	    		cb();
-	    	}
-			t.emit('rabbit-connected', t.wascally)
-
-	    });
-
-		return this;
-	}
-	Scaff.prototype.rabbitReceive = function(queue, limit, handler){
-		return rabbit.receive.call(this, queue, limit, handler)
-	}
-	Scaff.prototype.rabbitRespond = function(queue, limit, handler){
-		return rabbit.respond.call(this, queue, limit, handler)
-	}
-	Scaff.prototype.rabbitSend = function(label, msg, cb){
-		return rabbit.send.call(this, label, msg, cb)
-	}
-	Scaff.prototype.rabbitRequest = function(label, msg, cb){
-		return rabbit.request.call(this, label, msg, cb)
-	}
-	Scaff.prototype.rabbitReplyQueue = function(label){
-		if(this.config.rabbit){
-			this.config.rabbit.replyQueue = rabbit.replyQueue(label)
-		}
-		return this;
 	}
 
 	//----------------------------------------
@@ -343,19 +189,11 @@
 			.express()
 			.addCookieParser()
 			.addGzip()
-			.addQueryAndBodyParser();
-
-		// if (this._redis) {
-			this
-				.addRedisSessions()
-				.authenticationRememberMe()
-		// }
-
-		// if (this._mysql) {
-			this
-				.authenticationApikey()
-				.authenticationLogin()
-		// }
+			.addQueryAndBodyParser()
+			.addRedisSessions()
+			.authenticationRememberMe()
+			.authenticationApikey()
+			.authenticationLogin()
 
 		return this;
 	}
@@ -365,221 +203,16 @@
 			.express()
 			.addCookieParser()
 			.addGzip()
-			.addQueryAndBodyParser();
-
-		// if (this._redis) {
-			this
-				.addRedisSessions()
-				// .authenticationRememberMe()
-		// }
-
-		// if (this._mysql) {
-			this
-				.authenticationApikey()
-				// .authenticationLogin()
-		// }
+			.addQueryAndBodyParser()
+			.addRedisSessions()
+			.authenticationApikey()
 
 		return this;
 	}
 
-	//----------------------------------------
-	// static files, templates
-	//----------------------------------------
-	Scaff.prototype.addStaticDir = function(dir, route) {
-		if (!dir) {
-			throw new Error('addStaticDir: dir required')
-		}
-
-		try {
-			var stat = fs.statSync(dir);
-			if (!stat.isDirectory()) {
-				throw new Error('addStaticDir: `' + dir + '` is not a directory')
-			}
-		} catch (err) {
-			throw err
-		}
-
-		debug('addStaticDir: ' + dir + ', ' + route)
-
-		if (route) {
-			this.app.use(route, express.static(dir));
-		} else {
-			this.app.use(express.static(dir));
-		}
-
-		return this;
-	}
-	Scaff.prototype.addJade = function(dir) {
-		if (!dir) {
-			throw new Error('addJade: dir required')
-		}
-		try {
-			var stat = fs.statSync(dir);
-			if (!stat.isDirectory()) {
-				throw new Error('addJade: `' + dir + '` is not a directory')
-			}
-		} catch (err) {
-			throw err
-		}
-		// if(!options){
-		// 	options = {
-		// 		prettyprint: true
-		// 	};
-		// }
-
-		this.app.set('views', dir);
-		this.app.set('view engine', 'jade');
-		// this.app.set('view options', options);
-		return this;
-	}
 
 
-	//----------------------------------------
-	// status functions
-	//----------------------------------------
-	function haveRedisClient(_this, cb){
-        if(!_this.redis()){
-        	var err = new Error('no redis client set')
-        	if(typeof cb === 'function'){
-				cb(err)
-				return false;
-        	}
-        	else{
-	        	throw err
-	        }
 
-        }
-        return true;
-	}
-
-	Scaff.prototype.setStatus = function(key,field,val,cb){
-        debug('setStatus ' + key  + ', ' + field +': ' +val)
-        if(!haveRedisClient(this,cb)){
-        	return;
-        }
-		this.redis().hset(key,field,val,cb)
-	}
-	Scaff.prototype.getStatusAll = function(key,cb){
-        debug('getStatusAll ' + key )
-
-        if(!haveRedisClient(this,cb)){
-        	return;
-        }
-
-		this.redis().hgetall(key,cb)
-
-	}
-	Scaff.prototype.getStatus = function(key,field,cb){
-        if(!haveRedisClient(this,cb)){
-        	return;
-        }
-        this.redis().hget(key,field,cb)
-	}
-    // Scaff.prototype.delStatusAll = function(key,cb){
-    //     if(!haveRedisClient(this,cb)){
-    //     	return;
-    //     }
-    //     this.redis().del(key,cb)
-    // }
-	Scaff.prototype.incrementStatus = function(key,field,val,cb){
-        debug('incrementStatus ' + key  + ', ' + field +': ' +val)
-        if(!haveRedisClient(this,cb)){
-        	return;
-        }
-        this.redis().hincrby(key,field,val,cb)
-	}
-
-	//----------------------------------------
-	// basic middleware
-	//----------------------------------------
-	Scaff.prototype.addQueryAndBodyParser = function() {
-		debug('addQueryAndBodyParser')
-		var bodyParser = require('body-parser');
-
-		var config = {
-			extended: true
-		}
-		if(this.maxBodySize){
-			config.limit = '2mb'
-		}
-
-		this.app.use(bodyParser.json(config));
-		this.app.use(bodyParser.urlencoded(config));
-
-		return this;
-	}
-
-	Scaff.prototype.addCookieParser = function() {
-		debug('addCookieParser')
-		if (this.addedCookieParser) {
-			return this;
-		}
-		var cookieParser = require('cookie-parser');
-		this.app.use(cookieParser());
-		this.addedCookieParser = true;
-		return this;
-	}
-
-	Scaff.prototype.addGzip = function(options) {
-		debug('addGzip: ' + JSON.stringify(options || {}));
-		if (this.addedGzip) {
-			return this;
-		}
-
-		var compression = require('compression')
-		this.app.use(compression(options || {}));
-		this.addedGzip = true;
-		return this;
-	}
-
-	//----------------------------------------
-	// sessions
-	//----------------------------------------
-	Scaff.prototype.addRedisSessions = function(redisConfig, _sessionConfig, _cookieConfig) {
-		debug('addRedisSessions')
-
-		if(typeof redisConfig === 'undefined'){
-			if(!this._redis){
-				throw new Error('redis config or client required')
-			}
-			redisConfig = {
-				client: this._redis
-			}
-		}
-
-		var sessionConfig = _sessionConfig || {};
-		var cookieConfig = _cookieConfig || this._cookieConfig || {};
-
-		this.addCookieParser();
-		this.addQueryAndBodyParser();
-
-		// defaults
-		var _config = {
-			secret: 'do it',
-			key: this.sessionCookieLabel,
-			store: new RedisStore(redisConfig),
-			cookie: {
-				httpOnly: true,
-				maxAge: null //cookie destroyed browser when is closed
-			},
-			resave: true,
-			saveUninitialized: false,
-			secure: false
-		};
-
-		for (var key in sessionConfig) {
-			_config[key] = sessionConfig[key]
-		}
-
-		for (var key in cookieConfig) {
-			_config.cookie[key] = cookieConfig[key]
-		}
-
-		var session = require('express-session');
-		this.app.use(session(_config));
-
-		return this;
-	}
 
 	Scaff.prototype.clearUsersOtherSessions = function(req, res, next) {
 		// var userKey = 'remember_me-' + parseInt(userId, 10)
@@ -973,48 +606,6 @@
 		});
 	}
 
-	//----------------------------------------
-	// roles
-	//----------------------------------------
-	Scaff.prototype.checkRoles = function(roles, req, res, next) {
-
-		if(roleTest(roles, req)){
-			return next();
-		}
-
-		res.status(403);
-		return res.end('insufficient premissions');
-	}
-	Scaff.prototype.checkRolesWrapper = function(roles, fn, req, res, next) {
-
-		if(roleTest(roles, req)){
-			return fn(req, res, next)
-		}
-
-		return next();
-	}
-
-	function roleTest(roles, req){
-		var r = req.user && req.user.roles  ? req.user.roles : {};
-
-		// // get array intersection
-		// // http://stackoverflow.com/questions/1885557/simplest-code-for-array-intersection-in-javascript/1885569#1885569
-		// var match = r.filter(function(n) {
-		//     return roles.indexOf(n) != -1
-		// });
-		// if(match.length > 0){
-		// 	return true;
-		// }
-		// return false;
-
-		for(var i in roles){
-			if(r[roles[i]]){
-				return true
-			}
-		}
-		return false;
-	}
-
 
 	//----------------------------------------
 	// logging
@@ -1175,17 +766,7 @@
 	}
 
 
-	Scaff.prototype.sendEmail = function(msg, subject, html, to, from, cb) {
 
-		if(!this.config('email')){
-			if(typeof cb == 'function'){
-				cb(new Error('email config is required: serviceScaff.config("email", configObject)'))
-			}
-			return
-		}
-		var email = require('./lib/email');
-		email.send(this.config('email'), msg, subject, html, to, from, cb);
-	}
 
 	function uncaught(label, error){
 		var os = require("os");
@@ -1282,12 +863,9 @@
 	}
 
 
-	Scaff.prototype.commandLineArgs = function(options, ver){
-		return require('./lib/command-line')(options, ver)
 
-		// console.info(fn)
-		// return fn
-	}
+
+
 
 
 

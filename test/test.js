@@ -24,9 +24,15 @@
 
 	before(function() {
 
+		server.config({
+			redis: fakeredis.createClient('test'),
+			mysql: mysql
+		})
+		server.connectToResources(['redis', 'mysql'])
+
 		server
-			.redis(fakeredis.createClient('test'))
-			.mysql(mysql)
+			// .redis(fakeredis.createClient('test'))
+			// .mysql(mysql)
 			.cookieConfig({
 				domain: cookieDomain
 			})
@@ -67,16 +73,18 @@
 
 		it('authentication error', function(done) {
 
-			_server.authenticationLogin(function(req, u, p, cb) {
+			_server.loginFn = function(u, p, cb){
+				console.info('_server.loginFn')
 				cb('authenticatibbbonLogin error');
-			});
+			};
 			_server.deserializeUser = function(string, cb) {
 				return cb('serialize error')
 			}
-
-			_server.addRedisSessions({
-				client: fakeredis.createClient('test')
-			});
+			_server
+				.config({redis: fakeredis.createClient('test')})
+				.connectToResources(['redis'])
+			// _server.redis(fakeredis.createClient('test'))
+			_server.addRedisSessions();
 			_server.app.post('/login', _server.login.bind(_server));
 			_server.errorHandler();
 
@@ -91,12 +99,12 @@
 
 		it('req.login error', function(done) {
 			queryStub.callsArgWith(2,null,[{id: 1, active: 1}])
-			_server.authenticationLogin()
-			_server.addRedisSessions({
-				client: fakeredis.createClient()
-			});
-
-			_server.mysql(mysql)
+			_server
+				.config({redis: fakeredis.createClient('test'), mysql: mysql})
+				.connectToResources(['redis', 'mysql'])
+				.authenticationLogin()
+				.addRedisSessions()
+				.addQueryAndBodyParser();
 
 			// insert fake req.login fn to route
 			_server.app.post(
@@ -464,9 +472,11 @@
 		it('different app using same store', function(done) {
 
 			var _server = server.serviceScaff();
-			_server.express().addRedisSessions({
-				client: fakeredis.createClient('test')
-			});
+			_server
+				.config({redis: fakeredis.createClient('test')})
+				.connectToResources(['redis'])
+				.express()
+				.addRedisSessions();
 
 			_server.app.get('/check-session', function(req, res) {
 				return res.json({
@@ -678,11 +688,13 @@
 
 		it('cross process, different session secret', function(done) {
 			var _server = server.serviceScaff();
-			_server.express().addRedisSessions({
-				client: fakeredis.createClient('test')
-			}, {
-				secret: 'different secret'
-			});
+			_server
+				.config({redis: fakeredis.createClient('test')})
+				.connectToResources(['redis'])
+				.express()
+				.addRedisSessions({
+					secret: 'different secret'
+				});
 
 			// every route after this requires authentication
 			_server.app.use(server.authenticated.bind(server));
@@ -718,7 +730,9 @@
 			}, /redis/)
 
 			assert.doesNotThrow(function() {
-				_server.redis(fakeredis.createClient('test'))
+				_server
+					.config({redis: fakeredis.createClient('test')})
+					.connectToResources(['redis'])
 				_server.api();
 			})
 
@@ -726,7 +740,9 @@
 
 		it('default auth fails with no mysql', function(done) {
 			var _server = server.serviceScaff();
-			_server.redis(fakeredis.createClient('test'))
+			_server
+				.config({redis: fakeredis.createClient('test')})
+				.connectToResources(['redis'])
 			_server.api();
 			_server.use(_server.authenticated.bind(_server));
 			_server.get('/authenticated', function(req, res) {
@@ -748,8 +764,10 @@
 		it('no local strategy', function(done) {
 			var _server = server.serviceScaff();
 			_server
-				.redis(fakeredis.createClient('test'))
-				.mysql(mysql)
+				.config({redis: fakeredis.createClient('test'), mysql: mysql})
+				.connectToResources(['redis', 'mysql'])
+				// .redis(fakeredis.createClient('test'))
+				// .mysql(mysql)
 				.api();
 
 			_server.post('/login', _server.login.bind(_server));
@@ -772,8 +790,8 @@
 
 			var _server = server.serviceScaff();
 			_server
-				.redis(fakeredis.createClient('test'))
-				.mysql(mysql)
+				.config({redis: fakeredis.createClient('test'), mysql: mysql})
+				.connectToResources(['redis', 'mysql'])
 				.cookieConfig({
 					domain: cookieDomain
 				})
@@ -966,8 +984,8 @@
 		before(function() {
 
 			_server
-				.redis(fakeredis.createClient('test'))
-				.mysql(mysql)
+				.config({redis: fakeredis.createClient('test'), mysql: mysql})
+				.connectToResources(['redis', 'mysql'])
 				.web();
 
 			// _server.deserializeUser = function(string, cb) {
@@ -1375,19 +1393,33 @@
 		})
 
 		it('redis client', function() {
-			_server.redis(fakeredis.createClient('test'))
+			_server
+				.config({redis: fakeredis.createClient('test') })
+				.connectToResources(['redis'])
+
 			var r = _server.redis()
 			assert(r._events)
 		})
 
 		it('redis config', function(done) {
-			_server.redis({
-				port: 65534,
-				host: '127.0.0.1',
-				options: {
-					max_attempts: 1
-				}
-			})
+			_server
+				.config({
+					redis: {
+						port: 65534,
+						host: '127.0.0.1',
+						options: {
+							max_attempts: 1
+						}
+					}
+				})
+				.connectToResources(['redis'])
+			// _server.redis({
+			// 	port: 65534,
+			// 	host: '127.0.0.1',
+			// 	options: {
+			// 		max_attempts: 1
+			// 	}
+			// })
 			_server.redis().once('error', function(err) {
 				assert(err)
 				done();
@@ -1395,15 +1427,29 @@
 		})
 
 		it('mysql client', function() {
-			_server.mysql(mysql)
+
+			_server
+				.config({ mysql: mysql })
+				.connectToResources(['mysql'])
+
+			// _server.mysql(mysql)
+
 			assert(_server.mysql()._events)
 		})
 
 		it('mysql config', function(done) {
-			_server.mysql({
-				port: 65534,
-				host: '127.0.0.1'
-			})
+
+			_server
+				.config({ mysql: {
+					port: 65534,
+					host: '127.0.0.1'
+				}})
+				.connectToResources(['mysql'])
+
+			// _server.mysql({
+			// 	port: 65534,
+			// 	host: '127.0.0.1'
+			// })
 			var r = _server.mysql()
 			assert(r._events)
 			done();
@@ -1416,31 +1462,8 @@
 
 		it('rabbit set', function(done) {
 
-			_server.rabbit({
-				name: 'test',
-				server: 'host',
-				port: '1',
-				user: 'u',
-				pass: 'p',
-				// timeout: 100,
-				replyQueue: {
-					name: 'replies',
-					subscribe: 'true',
-					durable: true
-				},
-			}, function() {
-				_server.wascally.once('test.connection.failed', function(err) {
-					assert.equal('No endpoints could be reached', err)
-					done();
-				});
-
-			});
-		});
-
-		it('rabbit set 2', function(done) {
-
-			_server.rabbit({
-				connection: {
+			_server
+				.config({ rabbit: {
 					name: 'test',
 					server: 'host',
 					port: '1',
@@ -1451,40 +1474,147 @@
 						name: 'replies',
 						subscribe: 'true',
 						durable: true
-					},
-				}
-			}, function(){
+					}
+				}})
+				.connectToResources(['rabbit'])
+
+			_server.wascally.once('test.connection.failed', function(err) {
+				assert.equal('No endpoints could be reached', err)
+				done();
+			});
+
+
+
+			// _server.rabbit({
+			// 	name: 'test',
+			// 	server: 'host',
+			// 	port: '1',
+			// 	user: 'u',
+			// 	pass: 'p',
+			// 	// timeout: 100,
+			// 	replyQueue: {
+			// 		name: 'replies',
+			// 		subscribe: 'true',
+			// 		durable: true
+			// 	},
+			// }, function() {
+			// 	_server.wascally.once('test.connection.failed', function(err) {
+			// 		assert.equal('No endpoints could be reached', err)
+			// 		done();
+			// 	});
+			//
+			// });
+		});
+
+		it('rabbit set 2', function(done) {
+
+			// _server.rabbit({
+			// 	connection: {
+			// 		name: 'test',
+			// 		server: 'host',
+			// 		port: '1',
+			// 		user: 'u',
+			// 		pass: 'p',
+			// 		// timeout: 100,
+			// 		replyQueue: {
+			// 			name: 'replies',
+			// 			subscribe: 'true',
+			// 			durable: true
+			// 		},
+			// 	}
+			// }, function(){
+			// 	assert(_server.rabbit().addQueue);
+			// 	done()
+			// });
+
+			_server
+				.config({ rabbit: {
+					name: 'test',
+					server: 'host',
+					port: '1',
+					user: 'u',
+					pass: 'p',
+					// timeout: 100,
+					replyQueue: {
+						name: 'replies',
+						subscribe: 'true',
+						durable: true
+					}
+				}})
+				.connectToResources(['rabbit'])
+
+			_server.on('rabbit-connected', function(){
 				assert(_server.rabbit().addQueue);
 				done()
-			});
+			})
+
+			// _server.wascally.once('test.connection.failed', function(err) {
+			// 	assert.equal('No endpoints could be reached', err)
+			// 	done();
+			// });
 
 		});
 
 	})
 
 	describe('rabbit', function() {
-
-		beforeEach(function(done) {
+		// var _server = server.serviceScaff();
+		before(function(done) {
 			// server.wascally = {
 			// 	addExchange: function(){}
 			// }
 
-			server.rabbit({
-				name: 'test',
-				server: 'host',
-				port: '1',
-				user: 'u',
-				pass: 'p',
-				prefix: 'version'
-				// // timeout: 100,
-				//    replyQueue: {
-				//        name: 'replies',
-				//        subscribe: 'true',
-				//        durable: true
-				//    },
-			}, function() {
+
+			server
+				.config({
+					rabbit: {
+						name: 'test',
+						server: 'host',
+						port: '1',
+						user: 'u',
+						pass: 'p',
+						prefix: 'version'
+					}
+				})
+				.connectToResources(['rabbit'])
+
+
+
+
+			// server.config({
+			// 	rabbit:{
+			// 		name: 'test',
+			// 		server: 'host',
+			// 		port: '1',
+			// 		user: 'u',
+			// 		pass: 'p',
+			// 		prefix: 'version'
+			// 	}
+			// })
+			// server.connectToResources['rabbit']
+
+
+			// server.rabbit({
+			// 	name: 'test',
+			// 	server: 'host',
+			// 	port: '1',
+			// 	user: 'u',
+			// 	pass: 'p',
+			// 	prefix: 'version'
+			// 	// // timeout: 100,
+			// 	//    replyQueue: {
+			// 	//        name: 'replies',
+			// 	//        subscribe: 'true',
+			// 	//        durable: true
+			// 	//    },
+			// }, function() {
 				// server.wascally.once('test.connection.failed', function(err){
 				// 	// assert.equal('No endpoints could be reached',err)
+
+
+			// server.on('rabbit-connected', function(){
+
+
 				server.wascally.connections = {
 					'default': {
 						createExchange: function() {},
@@ -1527,12 +1657,13 @@
 				done();
 				// });
 
-			});
+			// });
 		})
 
 		it('rabbitRequest inherits', function(done) {
 
 			var _server = server.serviceScaff();
+
 			_server.rabbit({
 				name: 'test',
 				server: 'host',
@@ -1698,7 +1829,8 @@
 		it('rabbitSend via app', function(done) {
 
 			var _server = server.serviceScaff();
-			_server.express().rabbit({
+			_server.express()
+			_server.rabbit({
 				name: 'test',
 				server: 'host',
 				port: '1',
@@ -2148,11 +2280,19 @@
 	describe('events', function() {
 		it('redis', function(done){
 			var _server = server.serviceScaff();
+
 			_server.on('redis-connected', function(client){
 				assert(client._events)
 				done();
 			})
-			_server.redis(fakeredis.createClient('test'))
+
+			_server.config({
+				redis: fakeredis.createClient('test')
+			})
+			_server.connectToResources(['redis'])
+
+
+			// _server.redis(fakeredis.createClient('test'))
 		})
 	})
 
