@@ -6,9 +6,6 @@
 	var express = require('express');
 	// var RedisStore = require('connect-redis')(require('express-session'));
 	var Passport = require('passport').Passport
-	
-
-
 
 	var morganTokens = require('./lib/morgan-tokens')
 
@@ -18,7 +15,6 @@
 
 		this.rememberMeCookieLabel = 'rememberMe'
 		this.sessionCookieLabel = 'sessionId'
-
 		this.debug = debug;
 
 		var lib = [
@@ -32,6 +28,7 @@
 			'config',
 			'rabbit',
 			'roles',
+			'resources',
 			'resources/rabbit',
 			'resources/redis',
 			'resources/mysql',
@@ -117,70 +114,6 @@
 		this._registerAliases = aliases
 
 		return this;
-	}
-
-	Scaff.prototype.connectToResources = function(resources) {
-		if(typeof resources == 'string'){
-			resources = [resources]
-		}
-		var t = this;
-
-		var connected = 0;
-		var failed = 0;
-		// var count = resources.length
-		var connectedHash = {};
-
-		var time = 1000 * 30
-		var timer = setTimeout(function(){
-			t.emit('resources-failed', 'timeout: ' + time)
-		}, time)
-
-		resources.forEach(function(r){
-			connectedHash[r] = false;
-			debug('connectToResources: ' + r)
-
-			t.once(r + '-connected', function(){
-				debug('connectToResources, connected: ' + r)
-				// console.info(r + ' connected');
-
-				delete connectedHash[r]
-				if(Object.keys(connected).length == 0){
-					clearTimeout(timer)
-					t.emit('resources-connected')
-				}
-			})
-			t.once(r + '-failed', function(){
-				debug('connectToResources, failed: ' + r)
-				connectedHash[r] = failed;
-				clearTimeout(timer)
-				t.emit('resources-failed', r)
-			})
-
-			t[r].call(t, t.config(r))
-		});
-
-		return this;
-	}
-
-	Scaff.prototype.startOnResourcesConnected = function(_port){
-		var t = this;
-
-		var version = ''
-		try{
-			var pjson = require(module.parent.filename + '/../package.json');
-			version  = pjson.version
-		}
-		catch(e){
-			// console.info('package.json not found')
-		}
-
-
-		this.on('resources-connected', function(){
-		    t.start(_port || 0, function(err, port) {
-				if(err){ throw err; }
-				console.info(module.parent.filename + ' ' + version + ' started on port ' + port);
-		    });
-		})
 	}
 
 	//----------------------------------------
