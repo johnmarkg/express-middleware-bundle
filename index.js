@@ -4,7 +4,7 @@
     var events = require('events');
 	var debug = require('debug')('service-scaff')
 	var express = require('express');
-	// var RedisStore = require('connect-redis')(require('express-session'));
+
 	var Passport = require('passport').Passport
 
 	var morganTokens = require('./lib/morgan-tokens')
@@ -29,6 +29,7 @@
 			'rabbit',
 			'roles',
 			'resources',
+			'register',
 			'resources/rabbit',
 			'resources/redis',
 			'resources/mysql',
@@ -104,23 +105,8 @@
 		return this;
 	};
 
-	Scaff.prototype.register = function(label, checkPath, aliases){
-		if(!this.config('register')){
-			console.info('skipping registration, no config found')
-			return this;
-		}
-		this._register = label;
-		this._registerCheckPath = checkPath
-		this._registerAliases = aliases
 
-		return this;
-	}
-
-	//----------------------------------------
-	// helpers
-	//----------------------------------------
 	Scaff.prototype.web = function() {
-
 		this
 			.express()
 			.addCookieParser()
@@ -232,25 +218,25 @@
 		}
 
 
-		if(t._register){
-			var host = t.config('register').routers[0].host
-			var port = t.config('register').routers[0].port
-
-			var seaport = require('seaport');
-			var ports = seaport.connect({
-				host: host || 'localhost',
-				port: 59001,
-			});
-
-			var _port = app.listen(
-				ports.register(t._register, { aliases: t._registerAliases } ),
-
-				function(err){
-					up(err, _port.address().port)
-				}
-			);
-		}
-		else{
+		// if(t._register){
+		// 	var host = t.config('register').routers[0].host
+		// 	var port = t.config('register').routers[0].port
+		//
+		// 	var seaport = require('seaport');
+		// 	var ports = seaport.connect({
+		// 		host: host || 'localhost',
+		// 		port: 59001,
+		// 	});
+		//
+		// 	var _port = app.listen(
+		// 		ports.register(t._register, { aliases: t._registerAliases } ),
+		//
+		// 		function(err){
+		// 			up(err, _port.address().port)
+		// 		}
+		// 	);
+		// }
+		// else{
 
 			app.listen(port, function(err) {
 				t.server = this;
@@ -261,9 +247,11 @@
 
 				up(err, this.address().port)
 			});
-		}
+		// }
 
 		function up(err, _port){
+			t.emit('online', _port)
+			t._port = _port;
 
 			if (process.send) {
 				// for naught
@@ -310,22 +298,7 @@
 		// }, wait);
 	}
 
-	//----------------------------------------
-	// middleware
-	//----------------------------------------
-	Scaff.prototype.authenticated = function(req, res, next) {
-		var t = this
 
-		if (!req.isAuthenticated()) {
-			debug('not authenticated, check apikey');
-
-			this.passport.authenticate('localapikey', function(err, user, info) {
-				t.authenticateHandler(err, user, info, req, res, next)
-			})(req, res, next);
-		} else {
-			next()
-		}
-	}
 
 
 
@@ -360,13 +333,5 @@
 			t.authenticateHandler(err, user, info, req, res, next);
 		})(req, res, next);
 	}
-
-
-
-
-
-
-
-
 
 })(this);
