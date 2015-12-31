@@ -10,9 +10,7 @@
 	var LocalAPIKeyStrategy = require('passport-localapikey').Strategy;
 	var RememberMeStrategy = require('passport-remember-me').Strategy;
 
-	// var sessions = require('./lib/sessions')
 	var morganTokens = require('./lib/morgan-tokens')
-	// var rabbit = require('./lib/rabbit')
 
 	function Scaff() {
 
@@ -25,6 +23,7 @@
 
 		var lib = [
 			'command-line',
+			'errors',
 			'middleware',
 			'static',
 			'email',
@@ -736,69 +735,6 @@
 	}
 
 
-
-
-	function uncaught(label, error){
-		var os = require("os");
-		var msg = 'Error: ' + error.stack.split("\n").join("\n") + "\n\n";
-		msg += 'Host: ' + os.hostname();
-		var subject = 'PatentCAM ' + label + ': ' + __filename;
-		this.sendEmail(msg, subject, function(){
-			throw error
-		})
-	}
-	Scaff.prototype.errorHandler = function() {
-
-		debug('add errorHandler')
-		var t = this;
-
-		if(t.config('email')){
-			process.on('uncaughtException', uncaught.bind(t, 'uncaughtException') )
-			process.on('unhandledRejection', uncaught.bind(t, 'unhandledRejection') )
-		}
-
-		this.app.use(function(error, req, res, next) {
-
-			if (!t.app.get('dontPrintErrors')) {
-				console.error(error.stack);
-			}
-
-			res.status(500).send(error.toString());
-
-			if(t.config('email')){
-
-				var msg = ''//'<html><body>'
-
-				msg += 'Path: ' + req.path + "\n\n";
-				msg += 'Query: ' + JSON.stringify(req.query, null, 4) + "\n\n";
-				msg += 'Body: ' + JSON.stringify(req.body, null, 4) + "\n\n";
-				msg += 'Url: ' + req.url + "\n\n";
-				msg += "-------------------------------\n\n"
-				msg += 'Error: ' + error.stack.split("\n").join("\n") + "\n\n";
-				msg += "-------------------------------\n\n"
-				msg += 'User: ' + JSON.stringify(req.user, null, 4) + "\n\n";
-				// msg += '<p>Request: ' + req.url + '</p>';
-				// msg += '<p>Query: ' + JSON.stringify(req.query, null, 4) + '</p>';
-				// msg += '<p>Error: ' + JSON.stringify(error.stack, null, 4) + '</p>';
-				// msg += '<p>User: ' + JSON.stringify(req.user, null, 4) + '</p>';
-				// msg += '</body></html>'
-
-				var email = require('./lib/email');
-				email.send(
-					t.config('email'),
-					msg,
-					'PatentCAM Error: ' + req.protocol + '://' + req.get('host') + req.path,
-					next
-				)
-			}
-			else if(typeof next === 'function'){
-				next()
-			}
-
-		});
-
-		return this;
-	}
 
 	//----------------------------------------
 	// routes
