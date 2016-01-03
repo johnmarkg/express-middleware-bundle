@@ -41,8 +41,17 @@
 			'auth/user-pass'
 		]
 
+
 		lib.forEach(function(file){
 			var mod = require('./lib/' + file + '.js');
+
+			// factories
+			if(typeof mod == 'function'){
+				Scaff.prototype[mod.name] = mod();
+				// Scaff.prototype[mod.name] = mod;
+				return;
+			}
+
 			for (var fnName in mod) {
 				Scaff.prototype[fnName] = mod[fnName];
 			}
@@ -210,7 +219,10 @@
 	//----------------------------------------
 	Scaff.prototype.start = function(port, cb) {
 
+		this.express();
+
 		var app = this.app;
+
 		var t = this;
 
 		if (typeof port == 'undefined') {

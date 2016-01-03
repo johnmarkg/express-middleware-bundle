@@ -199,6 +199,8 @@
 		})
 
 		it('apiAuth, no mysql', function() {
+			// console.info(_server.mysql())
+			// var _server2  = server.serviceScaff()
 			assert.throws(function() {
 				_server.apiAuth('a')
 			}, 'mysql client required')
@@ -213,8 +215,12 @@
 
 		it('deserializeUser err', function(done) {
 			queryStub.callsArgWith(2, 'queryerror');
-			server.deserializeUser(-1, function(err) {
-				assert(err)
+			_server.mysql({
+				query: queryStub,
+				_events: true
+			})
+			_server.deserializeUser(-1, function(err) {
+				assert.equal(err, 'queryerror')
 				done();
 			})
 		})
@@ -496,11 +502,14 @@
 
 	describe('authentication', function() {
 		var queryStub;
+		var _server;
 		beforeEach(function(){
 			if(mysql.query.restore){
 				mysql.query.restore()
 			}
 			queryStub = sinon.stub(mysql, 'query')
+
+			_server = server.serviceScaff();
 		})
 		it('not yet', function(done) {
 			request(server.app)
@@ -535,8 +544,21 @@
 		it('failed login', function(done) {
 
 			queryStub.callsArgWith(2,null, [])
+			_server.mysql({query: queryStub, _events: true})
+			_server.redis(fakeredis.createClient('test'))
+			_server.express()
+			_server.addQueryAndBodyParser()
+			_server.addRedisSessions()
+			_server.authenticationLogin()
 
-			request(server.app)
+			_server.app.post(
+				'/login',
+				_server.login.bind(server)
+			)
+
+
+
+			request(_server.app)
 				.post('/login')
 				.send({
 					username: 'user1',
@@ -549,7 +571,24 @@
 
 		it('apikey, mysql err', function(done) {
 			queryStub.callsArgWith(2, 'mysqlerr')
-			request(server.app)
+
+			_server.mysql({query: queryStub, _events: true})
+			_server.redis(fakeredis.createClient('test'))
+			_server.express()
+			_server.addQueryAndBodyParser()
+			_server.addRedisSessions()
+			_server.authenticationApikey()
+			_server.use(_server.authenticated.bind(_server));
+
+			_server.app.post(
+				'/authenticated',
+				function(req, res){
+					res.end()
+				}
+			)
+
+
+			request(_server.app)
 				.post('/authenticated')
 				.query({
 					apikey: 'mysqlerr'
@@ -559,7 +598,22 @@
 
 		it('apikey, inactive', function(done) {
 			queryStub.callsArgWith(2, null, [{active: 0}]);
-			request(server.app)
+
+			_server.mysql({query: queryStub, _events: true})
+			_server.redis(fakeredis.createClient('test'))
+			_server.express()
+			_server.addQueryAndBodyParser()
+			_server.addRedisSessions()
+			_server.authenticationApikey()
+			_server.use(_server.authenticated.bind(_server));
+			_server.app.post(
+				'/authenticated',
+				function(req, res){
+					res.end()
+				}
+			)
+
+			request(_server.app)
 				.get('/authenticated')
 				.query({
 					apikey: 'inactive'
@@ -570,7 +624,21 @@
 
 		it('bad apikey', function(done) {
 			queryStub.callsArgWith(2, null, []);
-			request(server.app)
+			_server.mysql({query: queryStub, _events: true})
+			_server.redis(fakeredis.createClient('test'))
+			_server.express()
+			_server.addQueryAndBodyParser()
+			_server.addRedisSessions()
+			_server.authenticationApikey()
+			_server.use(_server.authenticated.bind(_server));
+			_server.app.post(
+				'/authenticated',
+				function(req, res){
+					res.end()
+				}
+			)
+
+			request(_server.app)
 				.get('/authenticated')
 				.query({
 					apikey: '1234'
@@ -582,7 +650,21 @@
 			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);
 			queryStub.onCall(1).callsArgWith(2, null, [{id: 1}]);
 
-			request(server.app)
+			_server.mysql({query: queryStub, _events: true})
+			_server.redis(fakeredis.createClient('test'))
+			_server.express()
+			_server.addQueryAndBodyParser()
+			_server.addRedisSessions()
+			_server.authenticationApikey()
+			_server.use(_server.authenticated.bind(_server));
+			_server.app.get(
+				'/authenticated',
+				function(req, res){
+					res.end()
+				}
+			)
+
+			request(_server.app)
 				.get('/authenticated')
 				.query({
 					apikey: '123'
@@ -592,11 +674,8 @@
 					if (err) {
 						return done(err);
 					}
-
-					request(server.app)
-						.post('/authenticated')
-						.set('cookie', res.headers['set-cookie'][0])
-						.expect(401, done)
+					assert(!res.headers['set-cookie'])
+					done()
 				});
 		});
 
@@ -606,7 +685,22 @@
 			// server.deserializeUser = function(uid, cb) {
 			// 	cb(new Error('deserializeError'))
 			// }
-			request(server.app)
+
+			_server.mysql({query: queryStub, _events: true})
+			_server.redis(fakeredis.createClient('test'))
+			_server.express()
+			_server.addQueryAndBodyParser()
+			_server.addRedisSessions()
+			_server.authenticationApikey()
+			_server.use(_server.authenticated.bind(_server));
+			_server.app.get(
+				'/authenticated',
+				function(req, res){
+					res.end()
+				}
+			)
+
+			request(_server.app)
 				.get('/authenticated')
 				.query({
 					apikey: '123'
@@ -628,7 +722,21 @@
 
 		it('login inactive user', function(done) {
 			queryStub.onCall(0).callsArgWith(2, null, [{active: 0, id: 1}]);
-			request(server.app)
+
+			_server.mysql({query: queryStub, _events: true})
+			_server.redis(fakeredis.createClient('test'))
+			_server.express()
+			_server.addQueryAndBodyParser()
+			_server.addRedisSessions()
+			_server.authenticationLogin()
+
+			_server.app.post(
+				'/login',
+				_server.login.bind(server)
+			)
+
+
+			request(_server.app)
 				.post('/login')
 				.send({
 					username: 'inactive',
@@ -664,26 +772,29 @@
 		it('login success', function(done) {
 			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);
 			queryStub.onCall(1).callsArgWith(2, null, [{active: 1, id: 1}]);
-			request(server.app)
+
+			_server.mysql({query: queryStub, _events: true})
+			_server.redis(fakeredis.createClient('test'))
+			_server.express()
+			_server.addQueryAndBodyParser()
+			_server.addRedisSessions()
+			_server.authenticationLogin()
+
+			_server.app.post(
+				'/login',
+				_server.login.bind(server)
+			)
+
+			request(_server.app)
 				.post('/login')
 				.send({
 					username: 'user',
 					password: 'password'
 				})
 				.expect(200)
-				// .expect(/\{"requestCount":1\}/, done)
-				.end(function(err, res) {
-					if (err) {
-						return done(err);
-					}
+				.end(done)
 
-					sessionCookie = res.headers['set-cookie'][0]
-					request(server.app)
-						.get('/authenticated')
-						.set('cookie', sessionCookie)
-						.expect(200)
-						.expect(/\{"requestCount":1\}/, done)
-				});
+
 		});
 
 		it('cross process, different session secret', function(done) {
@@ -1388,8 +1499,12 @@
 			assert(r._events)
 		})
 		it('get mysql', function() {
-			var r = server.mysql()
-			assert(r.query)
+			// console.info(server.mysql())
+			// var r = _server.mysql()
+			assert(!_server.mysql())
+
+			_server.mysql(fakemysql())
+			assert(_server.mysql().query)
 		})
 
 		it('redis client', function() {
