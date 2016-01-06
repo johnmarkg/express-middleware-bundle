@@ -1,7 +1,7 @@
 (function() {
 
 	var assert = require('assert');
-	var server = require('../index');
+	var server = require('../index')(['command-line']);
 
 
 	describe('args', function(){
@@ -42,6 +42,24 @@
 			assert.equal(clArgs.int, 123)
 		});
 
+		it('subcommand w/options', function(done){
+			process.argv = ['','','subcommand', 'label1', 'label2']
+			server.commandLineArgs([{
+				command: ['subcommand [label...]'],
+		        options: [
+	                ['-h, --handler [string]', 'handler'],
+	    			['-l, --limit [number]', 'max concurrent messages', parseInt, 10]
+	            ],
+		        action: function (label, options) {
+					assert.deepEqual(label, ['label1', 'label2'])
+					assert(!options.handler)
+					assert.equal(options.limit, 10)
+					done()
+				}
+			}]);
+
+		})
+
 	})
 
-}).call(this);	
+}).call(this);

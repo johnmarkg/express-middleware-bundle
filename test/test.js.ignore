@@ -36,6 +36,7 @@
 			.cookieConfig({
 				domain: cookieDomain
 			})
+			// .express()
 			.web();
 
 		server.app.set('dontPrintErrors', true)
@@ -85,7 +86,8 @@
 				.connectToResources(['redis'])
 			// _server.redis(fakeredis.createClient('test'))
 			_server.addRedisSessions();
-			_server.app.post('/login', _server.login.bind(_server));
+			// _server.app.post('/login', _server.login.bind(_server));
+			_server.app.post('/login', _server.login() );
 			_server.errorHandler();
 
 			request(_server.app)
@@ -115,7 +117,8 @@
 					}
 					next();
 				},
-				_server.login.bind(_server)
+				// _server.login.bind(_server)
+				_server.login()
 			);
 			_server.errorHandler();
 
@@ -553,7 +556,8 @@
 
 			_server.app.post(
 				'/login',
-				_server.login.bind(server)
+				// _server.login.bind(server)
+				_server.login()
 			)
 
 
@@ -578,8 +582,8 @@
 			_server.addQueryAndBodyParser()
 			_server.addRedisSessions()
 			_server.authenticationApikey()
-			_server.use(_server.authenticated.bind(_server));
-
+			// _server.use(_server.authenticated.bind(_server));
+			_server.authenticated()
 			_server.app.post(
 				'/authenticated',
 				function(req, res){
@@ -605,7 +609,8 @@
 			_server.addQueryAndBodyParser()
 			_server.addRedisSessions()
 			_server.authenticationApikey()
-			_server.use(_server.authenticated.bind(_server));
+			// _server.use(_server.authenticated.bind(_server));
+			_server.authenticated()
 			_server.app.post(
 				'/authenticated',
 				function(req, res){
@@ -630,7 +635,8 @@
 			_server.addQueryAndBodyParser()
 			_server.addRedisSessions()
 			_server.authenticationApikey()
-			_server.use(_server.authenticated.bind(_server));
+			// _server.use(_server.authenticated.bind(_server));
+			_server.authenticated()
 			_server.app.post(
 				'/authenticated',
 				function(req, res){
@@ -656,7 +662,8 @@
 			_server.addQueryAndBodyParser()
 			_server.addRedisSessions()
 			_server.authenticationApikey()
-			_server.use(_server.authenticated.bind(_server));
+			// _server.use(_server.authenticated.bind(_server));
+			_server.authenticated()
 			_server.app.get(
 				'/authenticated',
 				function(req, res){
@@ -692,7 +699,8 @@
 			_server.addQueryAndBodyParser()
 			_server.addRedisSessions()
 			_server.authenticationApikey()
-			_server.use(_server.authenticated.bind(_server));
+			// _server.use(_server.authenticated.bind(_server));
+			_server.authenticated()
 			_server.app.get(
 				'/authenticated',
 				function(req, res){
@@ -732,7 +740,8 @@
 
 			_server.app.post(
 				'/login',
-				_server.login.bind(server)
+				// _server.login.bind(server)
+				_server.login()
 			)
 
 
@@ -773,19 +782,20 @@
 			queryStub.onCall(0).callsArgWith(2, null, [{active: 1, id: 1}]);
 			queryStub.onCall(1).callsArgWith(2, null, [{active: 1, id: 1}]);
 
-			_server.mysql({query: queryStub, _events: true})
-			_server.redis(fakeredis.createClient('test'))
-			_server.express()
-			_server.addQueryAndBodyParser()
-			_server.addRedisSessions()
-			_server.authenticationLogin()
+			var _server2 = server.serviceScaff();
+			_server2.mysql({query: queryStub, _events: true})
+			_server2.redis(fakeredis.createClient('test'))
+			_server2.express()
+			_server2.addQueryAndBodyParser()
+			_server2.addRedisSessions()
+			_server2.authenticationLogin()
 
-			_server.app.post(
+			_server2.app.post(
 				'/login',
-				_server.login.bind(server)
+				_server2.login()
 			)
 
-			request(_server.app)
+			request(_server2.app)
 				.post('/login')
 				.send({
 					username: 'user',
@@ -793,33 +803,55 @@
 				})
 				.expect(200)
 				.end(done)
-
-
+				
 		});
 
 		it('cross process, different session secret', function(done) {
-			var _server = server.serviceScaff();
-			_server
-				.config({redis: fakeredis.createClient('test')})
-				.connectToResources(['redis'])
-				.express()
-				.addRedisSessions({
-					secret: 'different secret'
-				});
+			queryStub.callsArgWith(2, null, [{active: 1, id: 1}]);
 
-			// every route after this requires authentication
-			_server.app.use(server.authenticated.bind(server));
+			var _server2 = server.serviceScaff();
+			_server2.redis(fakeredis.createClient('test'))
+			_server2.mysql({_events: true, query: queryStub})
+			_server2.express()
+			_server2.addQueryAndBodyParser()
+			_server2.addRedisSessions({
+				secret: 'secret'
+			})
+			_server2.authenticationLogin();
+			_server2.post('/login', _server2.login() );
 
-			_server.app.get('/', function(req, res) {
+			var _server1 = server.serviceScaff();
+			_server1.redis(fakeredis.createClient('test'))
+			_server1.express()
+			_server1.addRedisSessions({
+				secret: 'different secret'
+			});
+			_server1.authenticated()
+			_server1.get('/', function(req, res) {
+				console.info('get')
 				return res.json({
 					value: req.session ? req.session[req.query.key] : false
 				});
 			});
 
-			request(_server.app)
-				.get('/')
-				.set('cookie', sessionCookie)
-				.expect(401, done)
+			request(_server2.app)
+				.post('/login')
+				.send({
+					username: 'user',
+					password: 'password'
+				})
+				.expect(200)
+				.end(function(err, res) {
+					if (err) {
+						return done(err)
+					}
+					var _cookie = res.headers['set-cookie'];
+					request(_server1.app)
+						.get('/')
+						.set('cookie', _cookie)
+						.expect(401, done)
+				})
+
 		});
 
 	});
@@ -855,7 +887,8 @@
 				.config({redis: fakeredis.createClient('test')})
 				.connectToResources(['redis'])
 			_server.api();
-			_server.use(_server.authenticated.bind(_server));
+			// _server.use(_server.authenticated.bind(_server));
+			_server.authenticated()
 			_server.get('/authenticated', function(req, res) {
 				res.end();
 			});
@@ -881,7 +914,8 @@
 				// .mysql(mysql)
 				.api();
 
-			_server.post('/login', _server.login.bind(_server));
+			// _server.post('/login', _server.login.bind(_server));
+			_server.post('/login', _server.login() );
 			_server.errorHandler();
 			_server.app.set('dontPrintErrors', true)
 			request(_server.app)
@@ -909,8 +943,10 @@
 				.api();
 
 			// routes(_server);
-			_server.post('/login', _server.login.bind(_server));
-			_server.use(_server.authenticated.bind(_server));
+			// _server.post('/login', _server.login.bind(_server));
+			_server.post('/login', _server.login() );
+			// _server.use(_server.authenticated.bind(_server));
+			_server.authenticated()
 			_server.get('/authenticated', function(req, res) {
 				res.end();
 			});
@@ -1110,11 +1146,13 @@
 			// 	return cb(null, user)
 			// }
 
-			_server.app.post('/login', _server.login.bind(_server));
+			// _server.app.post('/login', _server.login.bind(_server));
+			_server.app.post('/login', _server.login() );
 			_server.app.get('/logout', _server.logout.bind(_server));
 
 			// every route after this requires authentication
-			_server.app.use(server.authenticated.bind(server));
+			// _server.app.use(server.authenticated.bind(server));
+			_server.authenticated()
 
 			_server.app.get('/set', function(req, res) {
 				req.session[req.query.key] = req.query.value;
@@ -1494,10 +1532,10 @@
 			_server = server.serviceScaff();
 		})
 
-		it('get redis', function() {
-			var r = server.redis()
-			assert(r._events)
-		})
+		// it('get redis', function() {
+		// var r = server.redis()
+		// 	assert(r._events)
+		// })
 		it('get mysql', function() {
 			// console.info(server.mysql())
 			// var r = _server.mysql()
@@ -1593,7 +1631,9 @@
 				}})
 				.connectToResources(['rabbit'])
 
-			_server.wascally.once('test.connection.failed', function(err) {
+			// console.info(_server.rabbit())
+
+			_server.rabbit().once('test.connection.failed', function(err) {
 				assert.equal('No endpoints could be reached', err)
 				done();
 			});
@@ -1623,25 +1663,6 @@
 
 		it('rabbit set 2', function(done) {
 
-			// _server.rabbit({
-			// 	connection: {
-			// 		name: 'test',
-			// 		server: 'host',
-			// 		port: '1',
-			// 		user: 'u',
-			// 		pass: 'p',
-			// 		// timeout: 100,
-			// 		replyQueue: {
-			// 			name: 'replies',
-			// 			subscribe: 'true',
-			// 			durable: true
-			// 		},
-			// 	}
-			// }, function(){
-			// 	assert(_server.rabbit().addQueue);
-			// 	done()
-			// });
-
 			_server
 				.config({ rabbit: {
 					name: 'test',
@@ -1663,22 +1684,13 @@
 				done()
 			})
 
-			// _server.wascally.once('test.connection.failed', function(err) {
-			// 	assert.equal('No endpoints could be reached', err)
-			// 	done();
-			// });
-
 		});
 
 	})
 
 	describe('rabbit', function() {
-		// var _server = server.serviceScaff();
-		before(function(done) {
-			// server.wascally = {
-			// 	addExchange: function(){}
-			// }
 
+		before(function(done) {
 
 			server
 				.config({
@@ -1694,43 +1706,10 @@
 				.connectToResources(['rabbit'])
 
 
-
-
-			// server.config({
-			// 	rabbit:{
-			// 		name: 'test',
-			// 		server: 'host',
-			// 		port: '1',
-			// 		user: 'u',
-			// 		pass: 'p',
-			// 		prefix: 'version'
-			// 	}
-			// })
-			// server.connectToResources['rabbit']
-
-
-			// server.rabbit({
-			// 	name: 'test',
-			// 	server: 'host',
-			// 	port: '1',
-			// 	user: 'u',
-			// 	pass: 'p',
-			// 	prefix: 'version'
-			// 	// // timeout: 100,
-			// 	//    replyQueue: {
-			// 	//        name: 'replies',
-			// 	//        subscribe: 'true',
-			// 	//        durable: true
-			// 	//    },
-			// }, function() {
-				// server.wascally.once('test.connection.failed', function(err){
-				// 	// assert.equal('No endpoints could be reached',err)
-
-
 			// server.on('rabbit-connected', function(){
 
 
-				server.wascally.connections = {
+				server.rabbit().connections = {
 					'default': {
 						createExchange: function() {},
 						createQueue: function() {},
@@ -1754,7 +1733,7 @@
 					}
 				}
 
-				server.wascally.bindQueue = function() {
+				server.rabbit().bindQueue = function() {
 					var deferred = Q.defer();
 					setTimeout(function() {
 						deferred.resolve();
@@ -1762,7 +1741,7 @@
 					return deferred.promise;
 				}
 
-				server.wascally.addExchange = function() {
+				server.rabbit().addExchange = function() {
 					var deferred = Q.defer();
 					setTimeout(function() {
 						deferred.resolve();
@@ -1787,7 +1766,7 @@
 				pass: 'p'
 			});
 
-			_server.wascally.request = function(ex, config) {
+			_server.rabbit().request = function(ex, config) {
 				assert.equal('req-res.default-exchange', ex)
 				assert.equal('default.queue', config.routingKey)
 				assert.equal('req-res.default.queue', config.type)
@@ -1864,7 +1843,7 @@
 			}
 
            sinon.stub(
-                   server.wascally.connections.default.channels['queue:req-res.version.queue'],
+                   server.rabbit().connections.default.channels['queue:req-res.version.queue'],
                    'subscribe',
                    function() {
                            handler({
@@ -1953,10 +1932,10 @@
 				pass: 'p'
 			});
 
-			sinon.stub(_server.wascally, 'publish', function(ex) {
+			sinon.stub(_server.rabbit(), 'publish', function(ex) {
 				var p = 'default'
 				assert.equal('send-rec.' + p +'-exchange', ex)
-				_server.wascally.publish.restore();
+				_server.rabbit().publish.restore();
 				done();
 			});
 
@@ -1976,10 +1955,10 @@
 				pass: 'p'
 			});
 
-			sinon.stub(_server.wascally, 'publish', function(ex) {
+			sinon.stub(_server.rabbit(), 'publish', function(ex) {
 				var p = 'default'
 				assert.equal('send-rec.' + p +'-exchange', ex)
-				_server.wascally.publish.restore();
+				_server.rabbit().publish.restore();
 				done();
 			});
 
@@ -1990,7 +1969,7 @@
 
 		it('rabbitSend inherits', function(done) {
 
-			var stub = sinon.stub(server.wascally, 'publish', function(ex, config) {
+			var stub = sinon.stub(server.rabbit(), 'publish', function(ex, config) {
 				var p = 'version'
 				// if(stub.callCount > 1){
 				// 	p = 'default';
@@ -2027,7 +2006,7 @@
 					sinon.assert.calledTwice(stub)
 					assert.equal(spy.callCount, 1)
 					Rabbus.Sender.restore();
-					server.wascally.publish.restore();
+					server.rabbit().publish.restore();
 					// server._rabbitConfig.connection.prefix = 'version'
 					done();
 				})
@@ -2076,7 +2055,7 @@
 			}
 
 			sinon.stub(
-				server.wascally.connections.default.channels['queue:send-rec.version.queue'],
+				server.rabbit().connections.default.channels['queue:send-rec.version.queue'],
 				'subscribe',
 				function() {
 					handler({
@@ -2175,11 +2154,13 @@
 		})
 
 		// https://github.com/strongloop/express/issues/782
-		_localServer.post('/login', _localServer.login.bind(_localServer));
+		// _localServer.post('/login', _localServer.login.bind(_localServer));
+		_localServer.post('/login', _localServer.login() );
 		_localServer.get('/logout', _localServer.logout.bind(_localServer));
 
 		// every route after this requires authentication
-		_localServer.use(_localServer.authenticated.bind(_localServer));
+		// _localServer.use(_localServer.authenticated.bind(_localServer));
+		_localServer.authenticated()
 
 		_localServer.get('/authenticated', function(req, res) {
 			res.status(401);

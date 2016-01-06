@@ -9,7 +9,7 @@
 
 	var morganTokens = require('./lib/morgan-tokens')
 
-	function Scaff() {
+	function Scaff(modules) {
 
 		events.EventEmitter.call(this)
 
@@ -41,20 +41,28 @@
 			'auth/user-pass'
 		]
 
+		if(modules){
+			lib = modules
+		}
 
+		var t = this;
+		t.modules = {};
 		lib.forEach(function(file){
+			// console.info(file)
+			if(t.modules[file]){ return; }
+			debug('load module: ' + file)
+			t.modules[file] = true;
+
 			var mod = require('./lib/' + file + '.js');
 
 			// factories
 			if(typeof mod == 'function'){
-				Scaff.prototype[mod.name] = mod();
-				// Scaff.prototype[mod.name] = mod;
+				t[mod.name] = mod();
 				return;
 			}
 
-			for (var fnName in mod) {
-				Scaff.prototype[fnName] = mod[fnName];
-			}
+			// standard exports
+			Object.assign(t, mod)
 		})
 
 		return this;
@@ -66,15 +74,18 @@
 
 
 	// export constructor
-	exports = module.exports = new Scaff();
-
-	// use this to get a new, non cached object
-	Scaff.prototype.ServiceScaff = function() {
-		return new Scaff();
+	// exports = module.exports = new Scaff();
+	exports = module.exports = function(modules){
+		return new Scaff(modules)
 	};
 
-	Scaff.prototype.serviceScaff = function() {
-		return new Scaff();
+	// use this to get a new, non cached object
+	Scaff.prototype.ServiceScaff = function(modules) {
+		return new Scaff(modules);
+	};
+
+	Scaff.prototype.serviceScaff = function(modules) {
+		return new Scaff(modules);
 	};
 
 
@@ -317,33 +328,48 @@
 	//----------------------------------------
 	// routes
 	//----------------------------------------
-	Scaff.prototype.logout = function(req, res) {
+	Scaff.prototype.logout = function() {
 
-		// clear passport session
-		req.logout();
+		return function(req, res){
+			// clear passport session
+			req.logout();
 
-		// clear session in store
-		req.session.destroy();
+			// clear session in store
+			req.session.destroy();
 
-		// reset client cookies
-		res.cookie(this.sessionCookieLabel, '');
-		res.cookie(this.rememberMeCookieLabel, '');
+			// reset client cookies
+			res.cookie(this.sessionCookieLabel, '');
+			res.cookie(this.rememberMeCookieLabel, '');
 
-		res.redirect('/');
+			res.redirect('/');
+		}
 	};
 
-	Scaff.prototype.login = function(req, res, next) {
+	// Scaff.prototype.login = function(req, res, next) {
+	Scaff.prototype.login = function() {
 		var t = this;
 
-		this.passport.authenticate('local', function(err, user, info) {
-			debug('local authenticate cb: ' + user)
-			debug(JSON.stringify(info))
-			if (!info) {
-				info = {};
-			}
-			info.session = true;
-			t.authenticateHandler(err, user, info, req, res, next);
-		})(req, res, next);
+		return function(req, res, next){
+			t.passport.authenticate('local', function(err, user, info) {
+				debug('local authenticate cb: ' + user)
+				debug(JSON.stringify(info))
+				if (!info) {
+					info = {};
+				}
+				info.session = true;
+				t.authenticateHandler(err, user, info, req, res, next);
+			})(req, res, next);
+		}
+
+		// this.passport.authenticate('local', function(err, user, info) {
+		// 	debug('local authenticate cb: ' + user)
+		// 	debug(JSON.stringify(info))
+		// 	if (!info) {
+		// 		info = {};
+		// 	}
+		// 	info.session = true;
+		// 	t.authenticateHandler(err, user, info, req, res, next);
+		// })(req, res, next);
 	}
 
 })(this);
