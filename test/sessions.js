@@ -3,6 +3,7 @@ var assert = require('assert')
 var fakeredis = require('fakeredis');
 var request = require('supertest');
 var sinon = require('sinon');
+var assign = require('object.assign').getPolyfill();
 
 var sessions = require('../lib/sessions')
 
@@ -110,7 +111,7 @@ describe('deserializeUserMysql', function(){
             }
         }
 
-        Object.assign(_scaffMock, sessions)
+        assign(_scaffMock, sessions)
 
         _scaffMock.deserializeUserMysql('user_id', function(err, userObj){
             if(err){ throw err; }
@@ -136,7 +137,7 @@ describe('deserializeUserMysql', function(){
             }
         }
 
-        Object.assign(_scaffMock, sessions)
+        assign(_scaffMock, sessions)
 
         // sessions.deserializeUserMysql.call(_scaffMock, 'user_id', function(err, userObj){
         _scaffMock.deserializeUserMysql('user_id', function(err, userObj){
@@ -163,7 +164,7 @@ describe('deserializeUserMysql', function(){
             }
         }
 
-        Object.assign(_scaffMock, sessions)
+        assign(_scaffMock, sessions)
 
         _scaffMock.deserializeUserMysql('user_id', function(err){
             assert.equal(err, 'fake error')
