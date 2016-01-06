@@ -2,6 +2,7 @@
 
 	var util = require('util');
     var events = require('events');
+	var assign = require('object.assign').getPolyfill();
 	var debug = require('debug')('service-scaff')
 	var express = require('express');
 
@@ -62,7 +63,8 @@
 			}
 
 			// standard exports
-			Object.assign(t, mod)
+			assign(t, mod)
+
 		})
 
 		return this;
