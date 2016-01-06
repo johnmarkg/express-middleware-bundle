@@ -7,40 +7,47 @@
 	describe('args', function(){
 		it('default', function(){
 			process.argv = [];
-			var clArgs = server.commandLineArgs();
-			assert(!clArgs.color)
-			assert(!clArgs.port)
+			server.commandLineArgs();
+			assert(!server.commandLineArgs('port'))
+			assert(!server.commandLineArgs('color'))
+			// assert(!clArgs.port)
 		});
 
 		it('default --color', function(){
 			process.argv = ['','','--color']
-			var clArgs = server.commandLineArgs();
-			assert(clArgs.color)
-			assert(!clArgs.port)
+			server.commandLineArgs();
+			assert(server.commandLineArgs('color'))
+			assert(!server.commandLineArgs('port'))
+			// assert(clArgs.color)
+			// assert(!clArgs.port)
 		});
 
 		it('default --port', function(){
 			process.argv = ['','','--port', 123]
-			var clArgs = server.commandLineArgs();
-			assert(!clArgs.color)
-			assert.equal(clArgs.port, 123)
+			server.commandLineArgs();
+			// assert(!clArgs.color)
+			assert(!server.commandLineArgs('color'))
+			// assert.equal(clArgs.port, 123)
+			assert.equal(server.commandLineArgs('port'), 123)
 		});
 
 		it('add an integer option --int', function(){
 			process.argv = ['','','--int', '123']
-			var clArgs = server.commandLineArgs([{
+			server.commandLineArgs([{
 				flag: '-i, --int [int]'
 			}]);
-			assert.equal(clArgs.int, 123)
+			// assert.equal(clArgs.int, 123)
+			assert.equal(server.commandLineArgs('int'), 123)
 		});
 
-		it('array option', function(){
-			process.argv = ['','','--int', '123']
-			var clArgs = server.commandLineArgs([
-				['-i, --int [int]', 'description' , parseInt]
-			]);
-			assert.equal(clArgs.int, 123)
-		});
+		// it('array option', function(){
+		// 	process.argv = ['','','--int', '123' ]
+		// 	server.commandLineArgs([
+		// 		['-i, --int [int]', 'description' , parseInt]
+		// 	]);
+		// 	// assert.equal(clArgs.int, 123)
+		// 	assert.equal(server.commandLineArgs('int'), 123)
+		// });
 
 		it('subcommand w/options', function(done){
 			process.argv = ['','','subcommand', 'label1', 'label2']
