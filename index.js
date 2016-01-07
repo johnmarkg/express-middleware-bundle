@@ -6,9 +6,6 @@
 	var debug = require('debug')('service-scaff')
 	var express = require('express');
 
-	var Passport = require('passport').Passport
-
-	var morganTokens = require('./lib/morgan-tokens')
 
 	function Scaff(modules) {
 
@@ -31,6 +28,7 @@
 			'roles',
 			'resources',
 			'register',
+			'morgan',
 			'resources/rabbit',
 			'resources/redis',
 			'resources/mysql',
@@ -73,10 +71,7 @@
 	util.inherits(Scaff, events)
 
 
-
-
-	// export constructor
-	// exports = module.exports = new Scaff();
+	// export factory function
 	exports = module.exports = function(modules){
 		return new Scaff(modules)
 	};
@@ -94,9 +89,6 @@
 	Scaff.prototype.express = function() {
 
 		if(this.app){ return this; }
-
-		// dont want cached object
-		this.passport = new Passport();
 
 		this.app = express();
 		this.app.disable('x-powered-by');
@@ -127,7 +119,6 @@
 		return this;
 	};
 
-
 	Scaff.prototype.web = function() {
 		this
 			.express()
@@ -153,79 +144,6 @@
 
 		return this;
 	}
-
-	//----------------------------------------
-	// passport
-	//----------------------------------------
-
-
-	Scaff.prototype.initPassport = function() {
-		this.passport.deserializeUser(this.deserializeUser.bind(this));
-		this.passport.serializeUser(this.serializeUser.bind(this));
-
-		if (this.passportInitialized) {
-			return this;
-		}
-		this.passportInitialized = true;
-
-		this.app.use(this.passport.initialize());
-
-		// this is strategy that check for cookies
-		this.app.use(this.passport.session());
-
-		return this;
-	}
-
-
-	//----------------------------------------
-	// logging
-	//----------------------------------------
-	Scaff.prototype.addLogger = function(tokens, immediate) {
-		if(!this.morgan){
-			this.morgan = require('morgan');
-			morganTokens.addTokens(this.morgan);
-		}
-
-		function skipFn(req) {
-			if (req.noLog || (req.query && req.query.noLog)) {
-				return true;
-			}
-		}
-
-		if(!tokens){
-			tokens = ':time :customMethod :customStatus :urlWithUser :responseTime :params :customUa'
-		}
-
-		var morganFn = this.morgan(tokens, {
-			immediate: immediate,
-			skip: skipFn
-		});
-
-		this.app.use(morganFn);
-
-		var manualLogger = this.morgan(tokens, {
-			immediate: true
-		});
-
-		this.log = function(req, res){
-
-			if(typeof req === 'string'){
-				req = {
-					url: req,
-					method: 'LOG'
-				}
-			}
-
-			if(skipFn(req)){ return this; }
-
-			manualLogger(req, res || {}, function(){})
-			return this;
-		}
-		this.app.log = this.log.bind(this);
-
-		return this;
-	}
-
 
 	//----------------------------------------
 	// start/stop server
@@ -323,55 +241,5 @@
 		// }, wait);
 	}
 
-
-
-
-
-	//----------------------------------------
-	// routes
-	//----------------------------------------
-	Scaff.prototype.logout = function() {
-
-		return function(req, res){
-			// clear passport session
-			req.logout();
-
-			// clear session in store
-			req.session.destroy();
-
-			// reset client cookies
-			res.cookie(this.sessionCookieLabel, '');
-			res.cookie(this.rememberMeCookieLabel, '');
-
-			res.redirect('/');
-		}
-	};
-
-	// Scaff.prototype.login = function(req, res, next) {
-	Scaff.prototype.login = function() {
-		var t = this;
-
-		return function(req, res, next){
-			t.passport.authenticate('local', function(err, user, info) {
-				debug('local authenticate cb: ' + user)
-				debug(JSON.stringify(info))
-				if (!info) {
-					info = {};
-				}
-				info.session = true;
-				t.authenticateHandler(err, user, info, req, res, next);
-			})(req, res, next);
-		}
-
-		// this.passport.authenticate('local', function(err, user, info) {
-		// 	debug('local authenticate cb: ' + user)
-		// 	debug(JSON.stringify(info))
-		// 	if (!info) {
-		// 		info = {};
-		// 	}
-		// 	info.session = true;
-		// 	t.authenticateHandler(err, user, info, req, res, next);
-		// })(req, res, next);
-	}
 
 })(this);
