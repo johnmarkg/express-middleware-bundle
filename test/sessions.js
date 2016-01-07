@@ -93,7 +93,7 @@ describe.skip('functional', function(){
 
 })
 
-describe('deserializeUserMysql', function(){
+describe.skip('deserializeUserMysql', function(){
 
     it('deserializeUserMysql no roles', function(done){
 
@@ -175,7 +175,7 @@ describe('deserializeUserMysql', function(){
 
 })
 
-describe('serializeUser', function(){
+describe.skip('serializeUser', function(){
     it('serializeUser', function(done){
         sessions.serializeUser(1, function(err, id){
             if(err){ throw err; }
