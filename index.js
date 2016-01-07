@@ -87,7 +87,6 @@
 
 
 	Scaff.prototype.express = function() {
-console.info(this)
 
 		if(this.app){ return this; }
 
