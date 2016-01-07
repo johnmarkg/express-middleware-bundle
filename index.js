@@ -6,7 +6,6 @@
 	var debug = require('debug')('service-scaff')
 	var express = require('express');
 
-
 	function Scaff(modules) {
 
 		events.EventEmitter.call(this)
@@ -14,6 +13,7 @@
 		this.rememberMeCookieLabel = 'rememberMe'
 		this.sessionCookieLabel = 'sessionId'
 		this.debug = debug;
+		this.authStrategies = {};
 
 		var lib = [
 			'command-line',
@@ -47,10 +47,11 @@
 		var t = this;
 		t.modules = {};
 		lib.forEach(function(file){
-			// console.info(file)
+
 			if(t.modules[file]){ return; }
-			debug('load module: ' + file)
 			t.modules[file] = true;
+
+			debug('load module: ' + file)
 
 			var mod = require('./lib/' + file + '.js');
 
@@ -62,7 +63,6 @@
 
 			// standard exports
 			assign(t, mod)
-
 		})
 
 		return this;
@@ -102,20 +102,39 @@
 		this.put = this.app.put.bind(this.app)
 
 
-		this.app.redis = this.redis.bind(this)
-		this.app.mysql = this.mysql.bind(this)
-		this.app.mongo = this.mongo.bind(this)
-		this.app.sphinxql = this.sphinxql.bind(this)
+		if(this.redis){
+			this.app.redis = this.redis.bind(this)
+		}
+		if(this.msql){
+			this.app.mysql = this.mysql.bind(this)
+		}
+		if(this.mongo){
+			this.app.mongo = this.mongo.bind(this)
+		}
+		if(this.sphinxql){
+			this.app.sphinxql = this.sphinxql.bind(this)
+		}
 
-        this.app.rabbitSend = this.rabbitSend.bind(this)
-        this.app.rabbitRequest = this.rabbitRequest.bind(this)
+		if(this.rabbitSend){
+			this.app.rabbitSend = this.rabbitSend.bind(this)
+			this.app.rabbitRequest = this.rabbitRequest.bind(this)
+		}
+		// if(this.rabbitRequest){
+		//
+		// }
 
-		this.app.setStatus = this.setStatus.bind(this)
-		this.app.getStatus = this.getStatus.bind(this)
-		this.app.getStatusAll = this.getStatusAll.bind(this)
-		this.app.incrementStatus = this.incrementStatus.bind(this)
+        if(this.setStatus){
+			this.app.setStatus = this.setStatus.bind(this)
+			this.app.getStatus = this.getStatus.bind(this)
+			this.app.getStatusAll = this.getStatusAll.bind(this)
+			this.app.incrementStatus = this.incrementStatus.bind(this)
+		}
 
-		this.app.sendEmail = this.sendEmail.bind(this);
+		if(this.sendEmail){
+			this.app.sendEmail = this.sendEmail.bind(this);
+		}
+
+
 
 		return this;
 	};

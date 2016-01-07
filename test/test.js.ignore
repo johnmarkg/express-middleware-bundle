@@ -11,7 +11,7 @@
 	var mysql = fakemysql();
 
 	var assert = require('assert');
-	var server = require('../index');
+	var server = require('../index')();
 
 	var sessionCookie;
 	var rememberCookie;
@@ -803,7 +803,7 @@
 				})
 				.expect(200)
 				.end(done)
-				
+
 		});
 
 		it('cross process, different session secret', function(done) {

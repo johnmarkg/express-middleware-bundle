@@ -7,8 +7,6 @@ var assign = require('object.assign').getPolyfill();
 
 var sessions = require('../lib/sessions')
 
-
-
 describe.skip('functional', function(){
     var scaff = require('../index')
     it('sessions, no auth', function(done){
@@ -42,7 +40,6 @@ describe.skip('functional', function(){
                         done()
                     })
             })
-
     })
 
     it('session config defined in config()', function(done){
@@ -186,10 +183,6 @@ describe.skip('serializeUser', function(){
 })
 
 describe('redis sessions', function(){
-
-    // it('exports', function(){
-    //     assert.equal(Object.keys(sessions).length, 4)
-    // })
 
     it('no redis config', function() {
         assert.throws(function() {
