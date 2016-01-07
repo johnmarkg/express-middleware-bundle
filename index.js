@@ -87,6 +87,7 @@
 
 
 	Scaff.prototype.express = function() {
+console.info(this)
 
 		if(this.app){ return this; }
 
@@ -100,6 +101,7 @@
 		this.post = this.app.post.bind(this.app)
 		this.delete = this.app.delete.bind(this.app)
 		this.put = this.app.put.bind(this.app)
+
 
 		this.app.redis = this.redis.bind(this)
 		this.app.mysql = this.mysql.bind(this)
@@ -118,6 +120,12 @@
 
 		return this;
 	};
+	Scaff.prototype.extendExpress = function(fnName) {
+		this.express();
+		this.app[fnName] = this[fnName].bind(this);
+		return this;
+	}
+
 
 	Scaff.prototype.web = function() {
 		this
