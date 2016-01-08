@@ -3,6 +3,8 @@ var rewire = require('rewire')
 var factory = rewire('../lib/resources/mysql');
 
 
+
+
 describe('resources/mysql', function(){
     it('exports a factory function', function(){
         assert.equal(typeof factory, 'function')
@@ -46,6 +48,19 @@ describe('resources/mysql', function(){
         assert(mysqlB().B)
 
         assert.notDeepEqual(mysqlA(), mysqlB())
+    })
+
+
+    it('verify connection success', function(done){
+        var service = require('../index')(['resources/mysql']);
+        service.on('mysql-failed', function(err){
+            assert(err)
+            done()
+        })
+        service.mysql({
+            host: 'localhost',
+            port: 80
+        })
     })
 
     // it('bound to server object', function(){
