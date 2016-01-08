@@ -1,7 +1,7 @@
 var assert = require('assert')
 var rewire = require('rewire')
 var factory = rewire('../lib/resources/mysql');
-
+var request = require('supertest')
 
 
 
@@ -62,6 +62,27 @@ describe('resources/mysql', function(){
             port: 80
         })
     })
+
+    it('get mysql in express route', function(done){
+        var service = require('../index')(['resources/mysql']);
+
+        service.mysql({
+            _events: true,
+            query: function(){}
+        })
+
+        service.express()
+        service.app.get('/', function(req, res){
+            assert(req.app.mysql().query)
+            res.end()
+        })
+
+        request(service.app)
+            .get('/')
+            .expect(200, done)
+
+    })
+
 
     // it('bound to server object', function(){
     //     var server = require('../index');

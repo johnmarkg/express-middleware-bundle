@@ -109,7 +109,7 @@
 		if (this.redis) {
 			this.app.redis = this.redis.bind(this)
 		}
-		if (this.msql) {
+		if (this.mysql) {
 			this.app.mysql = this.mysql.bind(this)
 		}
 		if (this.mongo) {
