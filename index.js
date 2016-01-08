@@ -1,7 +1,7 @@
-(function() {
+(function () {
 
 	var util = require('util');
-    var events = require('events');
+	var events = require('events');
 	var assign = require('object.assign').getPolyfill();
 	var debug = require('debug')('service-scaff')
 	var express = require('express');
@@ -40,15 +40,17 @@
 			'auth/user-pass'
 		]
 
-		if(modules){
+		if (modules) {
 			lib = modules
 		}
 
 		var t = this;
 		t.modules = {};
-		lib.forEach(function(file){
+		lib.forEach(function (file) {
 
-			if(t.modules[file]){ return; }
+			if (t.modules[file]) {
+				return;
+			}
 			t.modules[file] = true;
 
 			debug('load module: ' + file)
@@ -56,7 +58,7 @@
 			var mod = require('./lib/' + file + '.js');
 
 			// factories
-			if(typeof mod == 'function'){
+			if (typeof mod == 'function') {
 				t[mod.name] = mod();
 				return;
 			}
@@ -72,23 +74,25 @@
 
 
 	// export factory function
-	exports = module.exports = function(modules){
+	exports = module.exports = function (modules) {
 		return new Scaff(modules)
 	};
 
 	// use this to get a new, non cached object
-	Scaff.prototype.ServiceScaff = function(modules) {
+	Scaff.prototype.ServiceScaff = function (modules) {
 		return new Scaff(modules);
 	};
 
-	Scaff.prototype.serviceScaff = function(modules) {
+	Scaff.prototype.serviceScaff = function (modules) {
 		return new Scaff(modules);
 	};
 
 
-	Scaff.prototype.express = function() {
+	Scaff.prototype.express = function () {
 
-		if(this.app){ return this; }
+		if (this.app) {
+			return this;
+		}
 
 		this.app = express();
 		this.app.disable('x-powered-by');
@@ -102,20 +106,20 @@
 		this.put = this.app.put.bind(this.app)
 
 
-		if(this.redis){
+		if (this.redis) {
 			this.app.redis = this.redis.bind(this)
 		}
-		if(this.msql){
+		if (this.msql) {
 			this.app.mysql = this.mysql.bind(this)
 		}
-		if(this.mongo){
+		if (this.mongo) {
 			this.app.mongo = this.mongo.bind(this)
 		}
-		if(this.sphinxql){
+		if (this.sphinxql) {
 			this.app.sphinxql = this.sphinxql.bind(this)
 		}
 
-		if(this.rabbitSend){
+		if (this.rabbitSend) {
 			this.app.rabbitSend = this.rabbitSend.bind(this)
 			this.app.rabbitRequest = this.rabbitRequest.bind(this)
 		}
@@ -123,14 +127,14 @@
 		//
 		// }
 
-        if(this.setStatus){
+		if (this.setStatus) {
 			this.app.setStatus = this.setStatus.bind(this)
 			this.app.getStatus = this.getStatus.bind(this)
 			this.app.getStatusAll = this.getStatusAll.bind(this)
 			this.app.incrementStatus = this.incrementStatus.bind(this)
 		}
 
-		if(this.sendEmail){
+		if (this.sendEmail) {
 			this.app.sendEmail = this.sendEmail.bind(this);
 		}
 
@@ -138,14 +142,14 @@
 
 		return this;
 	};
-	Scaff.prototype.extendExpress = function(fnName) {
+	Scaff.prototype.extendExpress = function (fnName) {
 		this.express();
 		this.app[fnName] = this[fnName].bind(this);
 		return this;
 	}
 
 
-	Scaff.prototype.web = function() {
+	Scaff.prototype.web = function () {
 		this
 			.express()
 			.addCookieParser()
@@ -159,7 +163,7 @@
 		return this;
 	}
 
-	Scaff.prototype.api = function() {
+	Scaff.prototype.api = function () {
 		this
 			.express()
 			.addCookieParser()
@@ -174,8 +178,8 @@
 	//----------------------------------------
 	// start/stop server
 	//----------------------------------------
-	Scaff.prototype.start = function(port, cb) {
-
+	Scaff.prototype.start = function (port, cb) {
+		debug('start')
 		this.express();
 
 		var app = this.app;
@@ -186,85 +190,72 @@
 			throw new Error('port required')
 		}
 
+		app.listen(port, function (err) {
+			// console.info(arguments)
+			t.server = this;
+			debug(
+				process.title + " listening on port %d (pid: " + process.pid + ")",
+				this.address().port
+			);
 
-		// if(t._register){
-		// 	var host = t.config('register').routers[0].host
-		// 	var port = t.config('register').routers[0].port
-		//
-		// 	var seaport = require('seaport');
-		// 	var ports = seaport.connect({
-		// 		host: host || 'localhost',
-		// 		port: 59001,
-		// 	});
-		//
-		// 	var _port = app.listen(
-		// 		ports.register(t._register, { aliases: t._registerAliases } ),
-		//
-		// 		function(err){
-		// 			up(err, _port.address().port)
-		// 		}
-		// 	);
-		// }
-		// else{
+			up(err, this.address().port)
+		});
 
-			app.listen(port, function(err) {
-				t.server = this;
-				debug(
-					process.title + " listening on port %d (pid: " + process.pid + ")",
-					this.address().port
-				);
 
-				up(err, this.address().port)
-			});
-		// }
+		function up(err, _port) {
+			if (err) {
+				t.emit('online-err', err)
+			} else {
+				t.emit('online', _port)
+				t._port = _port;
 
-		function up(err, _port){
-			t.emit('online', _port)
-			t._port = _port;
-
-			if (process.send) {
-				// for naught
-				process.send('online');
+				if (process.send) {
+					// for naught
+					process.send('online');
+				}
 			}
+
 			if (cb && typeof cb === 'function') {
 				cb(err, _port);
 			}
 		}
 
 		/* istanbul ignore next */
-		process.on('message', function(message) {
+		process.on('message', function (message) {
 			if (message === 'shutdown') {
-				debug(process.pid + " Received shutdown message, shutting down gracefully.")
+				debug(process.pid +
+					" Received shutdown message, shutting down gracefully.")
 				t.shutdown();
 			}
 		});
 
 		/* istanbul ignore next */
-		process.on('SIGTERM', function() {
-			console.log(process.pid + " Received kill signal (SIGTERM), shutting down gracefully.")
+		process.on('SIGTERM', function () {
+			console.log(process.pid +
+				" Received kill signal (SIGTERM), shutting down gracefully.")
 			t.shutdown();
 		})
 	}
 
-	Scaff.prototype.shutdown = function(msg) {
+	Scaff.prototype.shutdown = function (msg) {
 
-		this.server.close(function() {
-			debug("server stopped accepting connections")
-			if(msg){
-				console.info(msg)
-			}
+		this.server.close(function () {
+				debug("server stopped accepting connections")
+				if (msg) {
+					console.info(msg)
+				}
 
-			if (process.send) {
-				process.send('offline');
-			}
-		})
-		// var t = this;
-		// var wait = (this.shutdownTimeout || 1 * 60 * 1000);
-		// setTimeout(function() {
-		// 	console.error(process.pid + " Could not close connections in time, forcefully shutting down (waited " + wait + "ms) ")
-		// 	delete t.server;
-		// 	// process.exit(1)
-		// }, wait);
+				if (process.send) {
+					process.send('offline');
+				}
+			})
+			// var t = this;
+			// var wait = (this.shutdownTimeout || 1 * 60 * 1000);
+			// setTimeout(function() {
+			// 	console.error(process.pid + " Could not close connections in time, forcefully shutting down (waited " + wait + "ms) ")
+			// 	delete t.server;
+			// 	// process.exit(1)
+			// }, wait);
 	}
 
 
