@@ -67,6 +67,17 @@
 			assign(t, mod)
 		})
 
+		// try to load config
+		if(typeof this.config == 'function'){
+			try{
+				this.config(require('env-config-shared').getAll())
+			}
+			catch(err){
+				debug('automatic config loading failed: ' + err.toString() )
+			}
+
+		}
+
 		return this;
 	}
 

@@ -24,6 +24,7 @@
     "cookie-parser": "^1.4.0",
     "debug": "^2.2.0",
     "emailjs": "^1.0.0",
+    "env-config-shared": "^2.0.0",
     "express": "4.13.3",
     "express-session": "^1.12.1",
     "jade": "^1.11.0",
