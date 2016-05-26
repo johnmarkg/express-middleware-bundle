@@ -5,6 +5,7 @@
 	var assign = require('object.assign').getPolyfill();
 	var debug = require('debug')('service-scaff')
 	var express = require('express');
+	var op = require('openport')
 
 	function Scaff(modules) {
 
@@ -68,12 +69,11 @@
 		})
 
 		// try to load config
-		if(typeof this.config == 'function'){
-			try{
+		if (typeof this.config == 'function') {
+			try {
 				this.config(require('env-config-shared').getAll())
-			}
-			catch(err){
-				debug('automatic config loading failed: ' + err.toString() )
+			} catch (err) {
+				debug('automatic config loading failed: ' + err.toString())
 			}
 
 		}
@@ -201,16 +201,21 @@
 			throw new Error('port required')
 		}
 
-		app.listen(port, function (err) {
-			// console.info(arguments)
-			t.server = this;
-			debug(
-				process.title + " listening on port %d (pid: " + process.pid + ")",
-				this.address().port
-			);
+		op.find(function (err, _port) {
+			if (err) {
+				console.log(err)
+			}
+			app.listen(port || _port, function (err) {
+				t.server = this;
+				debug(
+					process.title + " listening on port %d (pid: " + process.pid + ")",
+					this.address().port
+				);
 
-			up(err, this.address().port)
+				up(err, this.address().port)
+			});
 		});
+
 
 
 		function up(err, _port) {
